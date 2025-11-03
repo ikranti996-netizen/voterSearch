@@ -298,7 +298,7 @@ export default function App() {
               const slogan = voter.slogan || "श्री. बापू तुकाराम महाजन";
               const sloganMr =
                 voter.slogan_marathi ||
-                "सदैव संपर्कात विश्वासू जुना नगरसेवक पुन्हा";
+                "सदैव संपर्कात विश्वास जुना नगरसेवक पुन्हा";
               const ward =
                 voter.ward ||
                 voter.ward_no ||

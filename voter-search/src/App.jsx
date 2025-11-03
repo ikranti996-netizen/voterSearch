@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import votersData from "./data/voters.json";
 import bannerUrl from "./assets/banner.jpeg";
@@ -6,7 +5,7 @@ import resultPhoto from "./assets/mama.jpeg";
 
 // Decorative inlined tile background (kept as data URL)
 const tileBgDataUrl =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAd0AAADdCAIAAABxKD+NAAAQAElEQVR4AeydB3wUVdn/3e+e9+zsy5t3Z2b2d2d2Zl3Znd2bZ2d2bZ2d2bZ2d2bZ2d2bZ2d2bYt2kqkqS5KpUKhQqVKoUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSr6r8w3/8wAABgH/8wAAHHcD4x0mAABgC9v9bWz+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAd0AAADdCAIAAABxKD+NAAAQAElEQVR4AeydB3wUVdn/3e+e9+zsy5t3Z2b2d2d2Zl3Znd2bZ2d2bZ2d2bZ2d2bZ2d2bZ2d2bYt2kqkqS5KpUKhQqVKoUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSr6r8w3/8wAABgH/8wAAHHcD4x0mAABgC9v9bWz+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1";
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -21,7 +20,8 @@ export default function App() {
 
     timerRef.current = window.setTimeout(() => {
       const q = query.trim();
-      if (!q) {
+      // require at least 3 characters to search
+      if (!q || q.length < 3) {
         setResults([]);
         return;
       }
@@ -81,10 +81,11 @@ export default function App() {
           --card-shadow: 0 12px 36px rgba(2,6,23,0.06);
         }
         .site-shell { max-width:1200px; margin:0 auto; padding:28px 20px; }
-        header{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px }
+        /* Header with subtle gradient background and rounded corners */
+        header{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; padding:12px 18px; border-radius:12px; background: linear-gradient(90deg, #0b57d0 0%, #0ea5e9 100%); color: #fff }
         .brand { display:flex; gap:12px; align-items:center }
-        .brand h1{ margin:0; font-size:20px; color:var(--accent) }
-        nav a{ color:var(--muted); text-decoration:none; margin-left:12px; font-size:14px }
+        .brand h3{ margin:0; font-size:20px; color: #fff }
+        nav a{ color:rgba(255,255,255,0.95); text-decoration:none; margin-left:12px; font-size:14px }
 
         .hero{ width:100%; border-radius:16px; overflow:hidden; position:relative; min-height:220px; display:flex; align-items:center; margin-bottom:36px }
         .hero .banner{ position:absolute; inset:0; background-size:cover; background-position:center; filter: contrast(0.96) saturate(1.02) }
@@ -97,57 +98,41 @@ export default function App() {
         .nagarsevak{ margin-top:10px; font-weight:700; color:#ffedd5 }
 
         .search-wrap{ width:100%; max-width:980px; margin:-28px auto 0; padding:12px; display:flex; gap:12px; align-items:center; z-index:3 }
-        .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:var(--card-shadow); border:1px solid rgba(2,6,23,0.04); }
-        .search-box input{ border:0; outline:0; width:100%; font-size:15px }
+        .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:var(--card-shadow); border:1px solid rgba(223, 237, 236, 0.04); }
+        /* Ensure input text is visible and caret uses accent color */
+        .search-box input{ border:0; outline:0; width:100%; font-size:15px; background-color: transparent; color: #0f172a; caret-color: var(--accent); }
+        .search-box input::placeholder { color: #94a3b8; opacity:1 }
+        .search-box:focus-within{ box-shadow: 0 8px 28px rgba(11,87,208,0.12); }
         .controls{ display:flex; gap:8px }
         .btn{ background:var(--accent); color:#fff; border:0; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer }
         .btn.secondary{ background:transparent; border:1px solid rgba(2,6,23,0.06); color:var(--muted) }
 
-        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px }
+        /* Force two cards per row on wide screens (as requested) */
+        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(2, 1fr); gap:18px }
 
         .card{ background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(2,6,23,0.04); box-shadow:var(--card-shadow); transition: transform .18s ease, box-shadow .18s ease }
         .card:hover{ transform: translateY(-6px); box-shadow: 0 22px 56px rgba(2,6,23,0.08) }
 
-        .card-header{ position:relative; padding:16px 16px 22px 110px; display:flex; align-items:flex-start; background-image:url("${tileBgDataUrl}"); background-size:cover; background-position:center; min-height:92px }
-        .card-header::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(221, 156, 17, 0.73), rgba(0,0,0,0.48)); z-index:0 }
+        /* Header layout: left = 50% slogan/name/ward, right = photo */
+        .card-header{ position:relative; padding:16px; display:flex; align-items:center; gap:12px; background-image:url("${tileBgDataUrl}"); background-size:cover; background-position:center; min-height:110px }
+        .card-header::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(208, 147, 147, 0.92), rgba(204, 162, 37, 0.92)); z-index:0 }
+        .header-left{ z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0 }
+        .header-right{ z-index:2; width:130px; display:flex; justify-content:center; align-items:center }
 
-        .photo-circle{ position:absolute; left:18px; top:14px; width:72px; height:72px; border-radius:999px; object-fit:cover; border:3px solid rgba(255,255,255,0.95); box-shadow: 0 8px 22px rgba(2,6,23,0.12); z-index:2 }
+        .photo-circle{ width:110px; height:110px; border-radius:999px; object-fit:cover; border:3px solid rgba(255,255,255,0.95); box-shadow: 0 8px 22px rgba(2,6,23,0.12); }
 
-        /* header-text used previously in the header; names moved into the body now */
-        .header-text{ position:relative; z-index:2; min-width:0 }
+        .marathi-slogan{ font-size:14px; color:#475569; font-weight:500; margin-bottom:6px }
+        .slogan-badge{ display:inline-block; background:#f1f5f9; color:#1e3a8a; padding:6px 12px; border-radius:12px; font-size:13px; font-weight:700 }
+        .ward-badge{ margin-top:8px; display:inline-block; background:rgba(2,6,23,0.04); color:var(--accent); padding:6px 10px; border-radius:8px; font-weight:800 }
+
+        /* card body styles kept similar */
+        .card-body{ padding:16px; display:flex; gap:12px; flex-direction:column }
+        .header-text{ position:relative; z-index:1; min-width:0 }
         .name-en{ font-size:16px; font-weight:800; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60ch }
         .name-mr{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60ch }
 
-        /* When the name elements are rendered inside the card body, use these colors/styles */
         .card-body .name-en{ color:#0f172a; text-shadow:none; }
         .card-body .name-mr{ color:#475569; }
-
-        .slogan-badge{ position:absolute; right:16px; top:12px; z-index:3; background:linear-gradient(90deg,#ffedd5,#fed7aa); color:#92400e; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:800; box-shadow:0 8px 20px rgba(249,115,22,0.08); max-width:40% ; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-
-        .ward-badge{ position:absolute; right:16px; bottom:12px; z-index:3; background:rgba(255,255,255,0.98); color:var(--accent); padding:8px 12px; border-radius:10px; font-weight:900; box-shadow:0 10px 28px rgba(2,6,23,0.08); font-size:13px }
-
-        /* stack the name section + details vertically inside card body */
-        .card-body{
-          padding:16px;
-          display:flex;
-          gap:12px;
-          flex-direction:column;
-        }
-.marathi-slogan{
-  position:relative;
-  z-index:2;
-  margin-left: 0; /* header already has left padding for the photo */
-  margin-top: 8px;
-  font-size:13px;
-  font-weight:700;
-  color:#ffedd5; /* matches other warm accent in header */
-  text-shadow: 0 4px 14px rgba(0,0,0,0.32);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:60%;
-}
-
 
         .details{ flex:1 }
         .meta{ display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:13px }
@@ -155,15 +140,22 @@ export default function App() {
 
         footer{ margin-top:36px; text-align:center; color:var(--muted); font-size:13px }
 
+        @media(max-width:900px){
+          .results{ grid-template-columns: repeat(1, 1fr) }
+          .card-header{ min-height:100px }
+          .header-right{ width:100px }
+          .photo-circle{ width:88px; height:88px }
+        }
+
         @media(max-width:600px){
           .hero-inner{ padding:18px }
           .hero-left{ max-width:100% }
           .title{ font-size:20px }
           .subtitle{ font-size:13px }
-          .card-header{ padding-left:92px; min-height:84px }
-          .photo-circle{ left:12px; top:12px; width:58px; height:58px }
-          .slogan-badge{ right:12px; top:10px; padding:6px 8px }
-          .ward-badge{ right:12px; bottom:10px; padding:6px 10px }
+          .card-header{ padding:12px }
+          .photo-circle{ width:72px; height:72px }
+          .slogan-badge{ padding:6px 8px }
+          .ward-badge{ padding:6px 8px }
         }
 
         @media(max-width:420px){
@@ -196,25 +188,9 @@ export default function App() {
           <div className="overlay" aria-hidden />
 
           <div className="hero-inner">
-            <div className="hero-left">
-              <div className="eyebrow">Committed to service</div>
-              <div className="title"></div>
-              <div className="subtitle">
-                Search the voter list quickly — Marathi + English supported. 
-              </div>
-              <div className="nagarsevak">नगरसेवक: {nagarsevakMarathi}</div>
-            </div>
+            <div className="hero-left"></div>
 
-            <div style={{ textAlign: "right" }}>
-              {/* <button
-                className="btn"
-                onClick={() =>
-                  document.getElementById("voter-search-input")?.focus()
-                }
-              >
-                Search Voters
-              </button> */}
-            </div>
+            <div style={{ textAlign: "right" }}></div>
           </div>
         </section>
 
@@ -277,7 +253,6 @@ export default function App() {
               <button className="btn secondary" onClick={clearSearch}>
                 Clear
               </button>
-             
             </div>
           </div>
         </div>
@@ -292,41 +267,38 @@ export default function App() {
             }}
           >
             <div style={{ color: "#475569", fontSize: 14 }}>
-              {query ? (
-                <strong>{results.length}</strong>
+              {query && query.trim().length >= 3 ? (
+                <>
+                  <strong>{results.length}</strong> {results.length === 1 ? " record found" : " records found"}
+                </>
               ) : (
-                <span style={{ color: "var(--muted)" }}>Type to search</span>
-              )}{" "}
-              {query
-                ? results.length === 1
-                  ? " record found"
-                  : " records found"
-                : ""}
+                <span style={{ color: "var(--muted)" }}>Type at least 3 characters to search</span>
+              )}
             </div>
-            <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              Search Marathi or English — no language toggle needed
-            </div>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}></div>
           </div>
 
           <div className="results" aria-live="polite">
-            {query && results.length === 0 && (
-              <div
-                style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}
-              >
+            {query && query.trim().length > 0 && query.trim().length < 3 && (
+              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
+                Please type at least 3 characters to start searching.
+              </div>
+            )}
+
+            {query && query.trim().length >= 3 && results.length === 0 && (
+              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
                 No records matched your search.
               </div>
             )}
 
             {results.map((voter) => {
-              // Use actual voter fields here (don't override)
               const nameEn = voter.name_english || "—";
               const nameMr = voter.name_marathi || "—";
               const photo = voter.photo || resultPhoto;
-              const slogan = voter.slogan || "श्री. बापू तुकराम महाजन";
+              const slogan = voter.slogan || "श्री. बापू तुकाराम महाजन";
               const sloganMr =
                 voter.slogan_marathi ||
-                "सदैव संपर्कात "
-               " विश्वासू जुना नगरसेवक पुन्हा";
+                "सदैव संपर्कात विश्वासू जुना नगरसेवक पुन्हा";
               const ward =
                 voter.ward ||
                 voter.ward_no ||
@@ -339,49 +311,76 @@ export default function App() {
                   key={voter.voter_id || `${voter.box_number}-${voter.part_no}`}
                   className="card"
                   aria-label={`Voter ${nameEn || nameMr}`}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    padding: 0,
+                    background: "#fff",
+                  }}
                 >
                   <div className="card-header">
-                    <img
-                      className="photo-circle"
-                      src={photo}
-                      alt={nameEn || nameMr}
-                      onError={(e) => {
-                        e.currentTarget.src = resultPhoto;
-                      }}
-                    />
+                    <div className="header-left">
+                      <div className="marathi-slogan">{sloganMr}</div>
+                      <div style={{ marginTop: 6 }}>
+                        <span className="slogan-badge" aria-hidden>
+                          {slogan.length > 40 ? slogan.slice(0, 38) + "…" : slogan}
+                        </span>
+                      </div>
 
-                    {/* Marathi slogan line (uses voter.slogan_marathi if available) */}
-                    <div className="marathi-slogan" aria-hidden>
-                      {sloganMr}
+                      <div>
+                        <span className="ward-badge">Ward 7 ( {ward} )</span>
+                      </div>
                     </div>
 
-                    {/* existing slogan badge (english/default) */}
-                    <div className="slogan-badge" aria-hidden>
-                      {slogan.length > 32 ? slogan.slice(0, 30) + "…" : slogan}
+                    <div className="header-right">
+                      <img
+                        className="photo-circle"
+                        src={photo}
+                        alt={nameEn || nameMr}
+                        onError={(e) => {
+                          e.currentTarget.src = resultPhoto;
+                        }}
+                      />
                     </div>
-
-                    <div className="ward-badge">(Ward 7) {ward}</div>
                   </div>
 
                   <div className="card-body">
-                    {/* Names moved here — they will appear above the "Relative" line */}
-                    <div style={{ marginBottom: 6 }}>
+                    <div style={{ marginBottom: 6, textAlign: "center" }}>
                       <div className="header-text" style={{ color: "#0f172a" }}>
-                        <div className="name-en" title={nameEn}>
+                        <div
+                          className="name-en"
+                          title={nameEn}
+                          style={{ fontSize: 16, fontWeight: 700 }}
+                        >
                           {nameEn}
                         </div>
-                        <div className="name-mr" title={nameMr}>
+                        <div
+                          className="name-mr"
+                          title={nameMr}
+                          style={{ fontSize: 15, color: "#334155" }}
+                        >
                           {nameMr}
                         </div>
                       </div>
                     </div>
 
-                    <div className="details">
-                      <div className="meta">
+                    <div
+                      className="details"
+                      style={{ fontSize: 13, color: "#334155" }}
+                    >
+                      <div
+                        className="meta"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13 }}>
                             <strong>Relative:</strong>{" "}
-                            {voter.relative_name_english || "—"} /{" "}
+                            {voter.relative_name_english || "—"} / {" "}
                             {voter.relative_name_marathi || "—"}
                           </div>
                           <div style={{ marginTop: 6, fontSize: 13 }}>
@@ -418,7 +417,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="address">
+                      <div className="address" style={{ marginTop: 8 }}>
                         <strong>Address:</strong> {voter.address || "N/A"}
                       </div>
                     </div>
@@ -430,7 +429,18 @@ export default function App() {
         </main>
 
         <footer>
-          © {new Date().getFullYear()} Voter Search — built with ❤️
+          <div
+            style={{
+              textAlign: "right",
+              width: "100%",
+              marginBottom: 6,
+              color: "#475569",
+              fontSize: 13,
+            }}
+          >
+            Total Records: <strong>{votersData.length}</strong>
+          </div>
+          © {new Date().getFullYear()} Voter Search — built with Lalit Mali ❤️
         </footer>
       </div>
     </div>

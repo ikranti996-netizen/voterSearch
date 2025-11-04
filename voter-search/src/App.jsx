@@ -9,10 +9,9 @@ import bannerUrl23 from "./assets/imagebanner.jpg";
 import resultPhoto from "./assets/mama.jpeg";
 
 /*
- Single-button share: capture card image + share text together.
- - Attempts navigator.share({ files, text }) first.
- - Then clipboard image+text fallback.
- - Final fallback: open image in new tab + open WhatsApp web with text.
+ Single-button share: capture card image.
+ - Currently shares ONLY the image.
+ - The information text is commented out; uncomment later when you want image+text.
 */
 
 const CAMPAIGN_TITLE = `🌸 मतदान करा बापू तुकाराम महाजन यांना 🌸
@@ -99,7 +98,7 @@ export default function App() {
     setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
   const nextSlide = () => setSlide((s) => (s + 1) % carouselImages.length);
 
-  // Single button: capture card + share text together
+  // SINGLE BUTTON: capture card image and share ONLY the image for now
   const shareCardWithInfo = async (voter) => {
     const cardId = "card-" + (voter.voter_id || `${voter.box_number}-${voter.part_no}`);
     const node = document.getElementById(cardId);
@@ -108,7 +107,11 @@ export default function App() {
       return;
     }
 
-    // Build the share text (campaign + voter details)
+    // -------------------------
+    // If you want to share text+image later, uncomment and use `textToShare`.
+    // For now we keep text commented so only image is shared.
+    // -------------------------
+    /*
     const name = voter.name_marathi || voter.name_english || "—";
     const rel = voter.relative_name_marathi || voter.relative_name_english || "—";
     const id = voter.voter_id || "—";
@@ -128,12 +131,12 @@ export default function App() {
       `🔹 पत्ता: ${addr}\n` +
       `🔹 वय / लिंग: ${age} वर्षे • ${gender}\n\n` +
       `🗳️ बापू तुकाराम महाजन यांना मतदान करा — कृपया हा कार्ड शेअर करा आणि पाठिंबा द्या!`;
+    */
 
     setSnapshotLoadingFor(cardId);
     setSnapshotMessage("Preparing image...");
 
     try {
-      // Optionally style the node for snapshot
       node.classList.add("snapshot-active");
 
       const canvas = await html2canvas(node, {
@@ -150,16 +153,19 @@ export default function App() {
 
       if (!blob) throw new Error("Failed to create image blob");
 
-      const fileName = `${(name || "voter").replace(/\s+/g, "-").slice(0, 40)}-card.png`;
+      const nameForFile = (voter.name_marathi || voter.name_english || "voter")
+        .replace(/\s+/g, "-")
+        .slice(0, 40);
+      const fileName = `${nameForFile}-card.png`;
       const file = new File([blob], fileName, { type: "image/png" });
 
-      // 1) Preferred: Web Share API with files + text (works on many mobile browsers)
+      // 1) Preferred: Web Share API with files (files only for now)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
             files: [file],
             title: "Voter Card",
-            text: textToShare,
+            // text: textToShare, // <-- commented: do not share text now
           });
           setSnapshotMessage("Shared!");
           setTimeout(() => setSnapshotLoadingFor(null), 900);
@@ -170,18 +176,11 @@ export default function App() {
         }
       }
 
-      // 2) Clipboard fallback: try to write image and text to clipboard (secure contexts)
+      // 2) Clipboard fallback: try to write image to clipboard (secure contexts)
       if (navigator.clipboard && window.ClipboardItem) {
         try {
-          // write image
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          // write text (some apps accept paste of both)
-          try {
-            await navigator.clipboard.writeText(textToShare);
-          } catch (e) {
-            // ignore text copy error
-          }
-          setSnapshotMessage("Image & text copied to clipboard. Paste into chat to send.");
+          setSnapshotMessage("Image copied to clipboard — paste into chat.");
           setTimeout(() => setSnapshotLoadingFor(null), 1600);
           return;
         } catch (err) {
@@ -190,14 +189,11 @@ export default function App() {
         }
       }
 
-      // 3) Final fallback: open image in new tab + open WhatsApp with text prefilled
+      // 3) Final fallback: open the image in a new tab (user can save/attach manually)
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank", "noopener,noreferrer");
 
-      const wa = `https://wa.me/?text=${encodeURIComponent(textToShare + "\n\n(Please attach the image from the opened tab)")}`;
-      window.open(wa, "_blank", "noopener,noreferrer");
-
-      setSnapshotMessage("Image opened in new tab. Attach it manually in WhatsApp.");
+      setSnapshotMessage("Image opened in new tab — save & attach manually.");
       setTimeout(() => setSnapshotLoadingFor(null), 1800);
     } catch (err) {
       console.error(err);
@@ -563,13 +559,13 @@ export default function App() {
                           gap: 6,
                         }}
                       >
-                        {/* SINGLE BUTTON: prepares & shares both image + text */}
+                        {/* SINGLE BUTTON: prepares & shares image only for now */}
                         <button
                           onClick={() => shareCardWithInfo(voter)}
-                          title="Share full card + info"
+                          title="Share full card (image only)"
                           style={{
                             marginLeft: 6,
-                            padding: "8px 5px",
+                            padding: "8px 12px",
                             borderRadius: 10,
                             border: "1px solid rgba(11,87,208,0.12)",
                             background: "#fff",
@@ -580,7 +576,7 @@ export default function App() {
                             alignItems: "center",
                             gap: 8,
                           }}
-                          aria-label="Share full card with information"
+                          aria-label="Share full card (image only)"
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
                             <path d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" fill="#25D366"/>
@@ -665,8 +661,7 @@ export default function App() {
           >
             Total Records: <strong>{votersData.length}</strong>
           </div>
-          © {new Date().getFullYear()} Voter Search — built with Lalit Mali
-          (7775025688) ❤️
+          © {new Date().getFullYear()} Voter Search — built with Lalit Mali ❤️
         </footer>
       </div>
     </div>

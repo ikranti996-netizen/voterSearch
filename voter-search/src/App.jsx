@@ -1,5 +1,6 @@
 // src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
+import html2canvas from "html2canvas";
 import votersData from "./data/voters.json";
 import bannerUrl from "./assets/LOGO.jpg";
 import bannerUrl1 from "./assets/awe.jpeg";
@@ -8,14 +9,12 @@ import bannerUrl23 from "./assets/imagebanner.jpg";
 import resultPhoto from "./assets/mama.jpeg";
 
 /*
-  NOTE:
-  - Card header now displays only a banner image (per-voter if available).
-  - Banner is responsive, uses object-fit: cover, has lazy-loading and a graceful fallback.
-  - Circular profile photo / extra header text removed as requested.
+ Single-button share: capture card image + share text together.
+ - Attempts navigator.share({ files, text }) first.
+ - Then clipboard image+text fallback.
+ - Final fallback: open image in new tab + open WhatsApp web with text.
 */
 
-// Campaign constant used in share message
-// Campaign constant used in share message
 const CAMPAIGN_TITLE = `🌸 मतदान करा बापू तुकाराम महाजन यांना 🌸
 💪 विकास आणि जनसेवेच्या वाटचालीसाठी तुमचा एक मत द्या!
 
@@ -31,6 +30,10 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const timerRef = useRef(null);
+
+  // snapshot state
+  const [snapshotLoadingFor, setSnapshotLoadingFor] = useState(null);
+  const [snapshotMessage, setSnapshotMessage] = useState("");
 
   // debounce search
   useEffect(() => {
@@ -96,60 +99,110 @@ export default function App() {
     setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
   const nextSlide = () => setSlide((s) => (s + 1) % carouselImages.length);
 
-  // Share via WhatsApp / Web Share API
-  const shareVoter = async (voter) => {
-    const name = voter.name_english || voter.name_marathi || "—";
-    const rel =
-      (voter.relative_name_english || voter.relative_name_marathi) ?? "—";
-    const id = voter.voter_id ?? "—";
-    const ward =
-      voter.ward || voter.ward_no || voter.wardNumber || voter.part_no || "—";
-    const box = voter.box_number ?? "—";
-    const part = voter.part_no ?? "—";
-    const addr = voter.address ?? "—";
-
-    // Professional, share-ready message (concise, readable)
-   const message =
-  `${CAMPAIGN_TITLE}\n\n` +
-  `🔹 नाव: ${name}\n` +
-  `🔹 नातेवाईक: ${rel}\n` +
-  `🔹 मतदान ओळख क्रमांक (Voter ID): ${id}\n` +
-  `🔹 विभाग / भाग क्र.: 7 (${ward} / ${part})\n` +
-  `🔹 बॉक्स क्रमांक: ${box}\n` +
-  `🔹 पत्ता: ${addr}\n` +
-  `🔹 वय / लिंग: ${voter.age ?? "—"} वर्षे • ${voter.gender || "—"}\n\n` +
-  `🗳️ आपल्या उमेदवारास पाठिंबा द्या — बापू तुकाराम महाजन यांना मतदान करा!\n` +
-  `🙏 हा संदेश पुढे पाठवा आणि विकासाच्या वाटचालीत सहभागी व्हा.`;
-
-
-    // First try Web Share API (mobile/native browsers)
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: CAMPAIGN_TITLE,
-          text: message,
-        });
-        return;
-      }
-    } catch (err) {
-      // silently continue to fallback
-      console.warn("Web Share failed, falling back to WhatsApp link", err);
+  // Single button: capture card + share text together
+  const shareCardWithInfo = async (voter) => {
+    const cardId = "card-" + (voter.voter_id || `${voter.box_number}-${voter.part_no}`);
+    const node = document.getElementById(cardId);
+    if (!node) {
+      alert("Card element not found.");
+      return;
     }
 
-    // Fallback: WhatsApp prefilled message (works on desktop & mobile web)
-    const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    // Build the share text (campaign + voter details)
+    const name = voter.name_marathi || voter.name_english || "—";
+    const rel = voter.relative_name_marathi || voter.relative_name_english || "—";
+    const id = voter.voter_id || "—";
+    const ward = voter.ward || voter.ward_no || voter.part_no || "—";
+    const box = voter.box_number ?? "—";
+    const addr = voter.address || "—";
+    const age = voter.age ?? "—";
+    const gender = voter.gender || "—";
 
-    // attempt to open in new tab/window
-    window.open(wa, "_blank", "noopener,noreferrer");
+    const textToShare =
+      `${CAMPAIGN_TITLE}\n\n` +
+      `🔹 नाव: ${name}\n` +
+      `🔹 नातेवाईक: ${rel}\n` +
+      `🔹 मतदान ओळख क्रमांक (Voter ID): ${id}\n` +
+      `🔹 विभाग / भाग क्र.: 7 (${ward})\n` +
+      `🔹 बॉक्स क्रमांक: ${box}\n` +
+      `🔹 पत्ता: ${addr}\n` +
+      `🔹 वय / लिंग: ${age} वर्षे • ${gender}\n\n` +
+      `🗳️ बापू तुकाराम महाजन यांना मतदान करा — कृपया हा कार्ड शेअर करा आणि पाठिंबा द्या!`;
 
-    // Additionally copy to clipboard as convenience when possible
+    setSnapshotLoadingFor(cardId);
+    setSnapshotMessage("Preparing image...");
+
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(message);
-        // Do not show alerts here — keep UX non-blocking. Integrate a toast in your app if desired.
+      // Optionally style the node for snapshot
+      node.classList.add("snapshot-active");
+
+      const canvas = await html2canvas(node, {
+        scale: Math.max(2, window.devicePixelRatio || 1),
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+
+      node.classList.remove("snapshot-active");
+
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/png")
+      );
+
+      if (!blob) throw new Error("Failed to create image blob");
+
+      const fileName = `${(name || "voter").replace(/\s+/g, "-").slice(0, 40)}-card.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      // 1) Preferred: Web Share API with files + text (works on many mobile browsers)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Voter Card",
+            text: textToShare,
+          });
+          setSnapshotMessage("Shared!");
+          setTimeout(() => setSnapshotLoadingFor(null), 900);
+          return;
+        } catch (err) {
+          console.warn("navigator.share with files failed:", err);
+          // fall through to clipboard fallback
+        }
       }
+
+      // 2) Clipboard fallback: try to write image and text to clipboard (secure contexts)
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          // write image
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          // write text (some apps accept paste of both)
+          try {
+            await navigator.clipboard.writeText(textToShare);
+          } catch (e) {
+            // ignore text copy error
+          }
+          setSnapshotMessage("Image & text copied to clipboard. Paste into chat to send.");
+          setTimeout(() => setSnapshotLoadingFor(null), 1600);
+          return;
+        } catch (err) {
+          console.warn("clipboard image write failed:", err);
+          // fall through to final fallback
+        }
+      }
+
+      // 3) Final fallback: open image in new tab + open WhatsApp with text prefilled
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      const wa = `https://wa.me/?text=${encodeURIComponent(textToShare + "\n\n(Please attach the image from the opened tab)")}`;
+      window.open(wa, "_blank", "noopener,noreferrer");
+
+      setSnapshotMessage("Image opened in new tab. Attach it manually in WhatsApp.");
+      setTimeout(() => setSnapshotLoadingFor(null), 1800);
     } catch (err) {
-      // clipboard write failed — ignore
+      console.error(err);
+      setSnapshotMessage("Failed to prepare image. Check console.");
+      setTimeout(() => setSnapshotLoadingFor(null), 1500);
     }
   };
 
@@ -165,10 +218,9 @@ export default function App() {
       }}
     >
       <style>{`
-        :root{ --surface:#ffffff; --muted:#94a3b8; --accent:#0b57d0; --soft:#eef2ff; --card-shadow: 0 12px 36px rgba(2,6,23,0.06); --gap:18px }
+        :root{ --surface:#ffffff; --muted:#94a3b8; --accent:#0b57d0; --soft:#eef2ff; --card-shadow: 0 12px 36px rgba(2,6,23,0.06); --gap:18px; }
         .site-shell { max-width:1200px; margin:0 auto; padding:28px 20px; }
 
-        /* carousel/banner */
         .hero{ width:100%; border-radius:16px; overflow:hidden; position:relative; display:flex; align-items:center; margin-bottom:36px }
         .hero { height: clamp(220px, 30vh, 420px) }
         .carousel{ position:relative; width:100%; height:100%; }
@@ -179,25 +231,42 @@ export default function App() {
         .carousel-dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:12px; display:flex; gap:8px; z-index:5 }
         .dot{ width:10px; height:10px; border-radius:999px; background:rgba(255,255,255,0.6); border:1px solid rgba(2,6,23,0.06); cursor:pointer }
         .dot[aria-current='true']{ background:#fff; box-shadow:0 6px 18px rgba(2,6,23,0.12) }
-        .carousel-arrow{ position:absolute; top:50%; transform:translateY(-50%); z-index:6; background: rgba(255,255,255,0.92); border-radius:999px; border:0; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; box-shadow: 0 6px 20px rgba(2,6,23,0.08) }
-        .carousel-arrow.left{ left:12px }
-        .carousel-arrow.right{ right:12px }
 
-        /* search and results */
         .search-wrap{ width:100%; max-width:980px; margin:-28px auto 0; padding:12px; display:flex; gap:12px; align-items:center; z-index:3 }
         .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:var(--card-shadow); border:1px solid rgba(223, 237, 236, 0.04); }
         .search-box input{ border:0; outline:0; width:100%; font-size:clamp(14px, 1.6vw, 15px); background-color: transparent; color: #0f172a; caret-color: var(--accent); }
         .search-box input::placeholder { color: #94a3b8; opacity: 1; }
-        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:var(--gap); align-items:start }
-        .card{ background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(2,6,23,0.04); box-shadow:var(--card-shadow); transition: transform .18s ease, box-shadow .18s ease; display:flex; flex-direction:column; position:relative }
 
-        /* Simplified professional card header: ONLY a banner image */
+        .btn-clear { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; border:0; background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(11,87,208,0.18); transition: transform .12s ease, box-shadow .12s ease, opacity .12s; }
+        .btn-clear:active{ transform: translateY(1px) }
+        .btn-clear[disabled]{ opacity: .6; cursor: default }
+
+        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:var(--gap); align-items:start }
+
+        .card{ background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(2,6,23,0.04); box-shadow:var(--card-shadow); transition: transform .18s ease, box-shadow .18s ease; display:flex; flex-direction:column; position:relative; border-left: 4px solid transparent; }
+        .card:hover{ transform: translateY(-6px); box-shadow: 0 18px 48px rgba(2,6,23,0.08); border-left-color: rgba(11,87,208,0.9); }
+
         .card-header{ position:relative; width:100%; height: clamp(88px, 18vw, 160px); overflow:hidden; background:#f1f5f9 }
-        .card-header img.banner{ width:100%; height:150%; object-fit:cover; display:block; vertical-align:middle; }
+        .card-header img.banner{ width:100%; height:150%; object-fit:cover; display:block; vertical-align:middle; filter: saturate(1.03) contrast(0.98); }
+
+        .snapshot-overlay {
+          position: absolute;
+          inset: 0;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background: rgba(2,6,23,0.42);
+          color: #fff;
+          font-weight:700;
+          z-index: 40;
+          border-radius: 12px;
+          pointer-events: none;
+        }
+
+        .snapshot-active { transform: none !important; }
 
         .card-body{ padding:18px 14px 14px 14px; display:flex; gap:12px; flex-direction:column; flex:1 }
 
-        /* share button */
         .share-btn { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; border:0; background:transparent; color:var(--accent); }
         .share-icon { width:18px; height:18px; display:inline-block; }
 
@@ -234,6 +303,7 @@ export default function App() {
                     onError={(e) => {
                       e.currentTarget.src = bannerUrl;
                     }}
+                    crossOrigin="anonymous"
                   />
                 </div>
               ))}
@@ -329,20 +399,32 @@ export default function App() {
             </div>
 
             <div className="controls" aria-hidden>
-              <button
-                className="btn secondary"
-                onClick={clearSearch}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  background: "white",
-                  border: "1px solid rgba(2,6,23,0.06)",
-                  boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
-                  cursor: "pointer",
-                }}
-              >
-                Clear
-              </button>
+              {query ? (
+                <button
+                  className="btn-clear"
+                  onClick={clearSearch}
+                  title="Clear search"
+                >
+                  Clear
+                </button>
+              ) : (
+                <button
+                  className="btn secondary"
+                  onClick={clearSearch}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    background: "white",
+                    border: "1px solid rgba(2,6,23,0.06)",
+                    boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+                    cursor: "pointer",
+                    opacity: 0.0,
+                    pointerEvents: "none",
+                  }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -399,14 +481,16 @@ export default function App() {
                 voter.part_no ||
                 7;
 
-              // use per-voter banner if available (field: card_banner or header_image), otherwise fallback to global banner
               const cardBanner =
                 voter.card_banner || voter.header_image || bannerUrl2;
+
+              const cardId = `card-${voter.voter_id || `${voter.box_number}-${voter.part_no}`}`;
 
               return (
                 <article
                   key={voter.voter_id || `${voter.box_number}-${voter.part_no}`}
                   className="card"
+                  id={cardId}
                   aria-label={`Voter ${nameEn || nameMr}`}
                   style={{
                     border: "1px solid #e2e8f0",
@@ -415,15 +499,26 @@ export default function App() {
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                     padding: 0,
                     background: "#fff",
+                    backgroundImage:
+                      "linear-gradient(180deg, rgba(11,87,208,0.02), rgba(255,255,255,0))",
+                    position: "relative",
                   }}
                 >
-                  {/* Simplified header: only banner image */}
+                  {snapshotLoadingFor === cardId && (
+                    <div className="snapshot-overlay" aria-hidden>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 14 }}>{snapshotMessage}</div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="card-header" aria-hidden>
                     <img
                       className="banner"
                       src={cardBanner}
                       alt={`Banner for ${nameEn}`}
                       loading="lazy"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         e.currentTarget.src = bannerUrl;
                       }}
@@ -468,40 +563,30 @@ export default function App() {
                           gap: 6,
                         }}
                       >
+                        {/* SINGLE BUTTON: prepares & shares both image + text */}
                         <button
-                          onClick={() => shareVoter(voter)}
-                          className="share-btn"
-                          aria-label={`Share ${nameEn || nameMr} via WhatsApp`}
-                          title="Share via WhatsApp"
+                          onClick={() => shareCardWithInfo(voter)}
+                          title="Share full card + info"
                           style={{
-                            background: "transparent",
-                            border: "none",
+                            marginLeft: 6,
+                            padding: "8px 5px",
+                            borderRadius: 10,
+                            border: "1px solid rgba(11,87,208,0.12)",
+                            background: "#fff",
                             cursor: "pointer",
-                            padding: 6,
+                            fontWeight: 700,
+                            color: "#0b57d0",
                             display: "inline-flex",
                             alignItems: "center",
+                            gap: 8,
                           }}
+                          aria-label="Share full card with information"
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="share-icon"
-                            style={{ width: 20, height: 20 }}
-                            aria-hidden
-                            focusable="false"
-                          >
-                            <path
-                              d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
-                              fill="#25D366"
-                            />
-                            <path
-                              d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z"
-                              fill="#fff"
-                            />
+                          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" fill="#25D366"/>
+                            <path d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z" fill="#fff"/>
                           </svg>
-
-                          <span style={{ fontSize: 13, color: "#0b57d0" }}>
-                            Share
-                          </span>
+                          Share
                         </button>
                       </div>
                     </div>

@@ -100,7 +100,8 @@ export default function App() {
 
   // SINGLE BUTTON: capture card image and share ONLY the image for now
   const shareCardWithInfo = async (voter) => {
-    const cardId = "card-" + (voter.voter_id || `${voter.box_number}-${voter.part_no}`);
+    const cardId =
+      "card-" + (voter.voter_id || `${voter.box_number}-${voter.part_no}`);
     const node = document.getElementById(cardId);
     if (!node) {
       alert("Card element not found.");
@@ -160,7 +161,11 @@ export default function App() {
       const file = new File([blob], fileName, { type: "image/png" });
 
       // 1) Preferred: Web Share API with files (files only for now)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
         try {
           await navigator.share({
             files: [file],
@@ -179,7 +184,9 @@ export default function App() {
       // 2) Clipboard fallback: try to write image to clipboard (secure contexts)
       if (navigator.clipboard && window.ClipboardItem) {
         try {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob }),
+          ]);
           setSnapshotMessage("Image copied to clipboard — paste into chat.");
           setTimeout(() => setSnapshotLoadingFor(null), 1600);
           return;
@@ -363,7 +370,7 @@ export default function App() {
 
               <input
                 id="voter-search-input"
-                placeholder="उदा: पाटील नभ्रता OR Patil Namrata OR voter id XWU2254902"
+                placeholder="उदा: महाजन बापु OR Bapu Tukaram OR voter id XWU2254902"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label="Search voters by name or voter ID"
@@ -480,7 +487,9 @@ export default function App() {
               const cardBanner =
                 voter.card_banner || voter.header_image || bannerUrl2;
 
-              const cardId = `card-${voter.voter_id || `${voter.box_number}-${voter.part_no}`}`;
+              const cardId = `card-${
+                voter.voter_id || `${voter.box_number}-${voter.part_no}`
+              }`;
 
               return (
                 <article
@@ -578,9 +587,20 @@ export default function App() {
                           }}
                           aria-label="Share full card (image only)"
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-                            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" fill="#25D366"/>
-                            <path d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z" fill="#fff"/>
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                          >
+                            <path
+                              d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
+                              fill="#25D366"
+                            />
+                            <path
+                              d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z"
+                              fill="#fff"
+                            />
                           </svg>
                           Share
                         </button>
@@ -624,7 +644,7 @@ export default function App() {
                             }}
                             className="pill"
                           >
-                         अनु क्र.{voter.box_number ?? "—"}
+                            अनु क्र.{voter.box_number ?? "—"}
                           </div>
                           <div
                             style={{

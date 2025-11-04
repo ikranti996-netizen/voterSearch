@@ -263,7 +263,7 @@ export default function App() {
 
         .card-body{ padding:18px 14px 14px 14px; display:flex; gap:12px; flex-direction:column; flex:1 }
 
-        .share-btn { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; border:0; background:transparent; color:var(--accent); }
+        .share-btn { display:inline-flex; align-items:center; gap:8px; padding:0px 10px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; border:0; background:transparent; color:var(--accent); }
         .share-icon { width:18px; height:18px; display:inline-block; }
 
         @media(max-width:900px){
@@ -565,7 +565,7 @@ export default function App() {
                           title="Share full card (image only)"
                           style={{
                             marginLeft: 6,
-                            padding: "8px 12px",
+                            padding: "0px 10px",
                             borderRadius: 10,
                             border: "1px solid rgba(11,87,208,0.12)",
                             background: "#fff",
@@ -624,7 +624,7 @@ export default function App() {
                             }}
                             className="pill"
                           >
-                            Box #{voter.box_number ?? "—"}
+                         अनु क्र.{voter.box_number ?? "—"}
                           </div>
                           <div
                             style={{

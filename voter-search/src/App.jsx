@@ -1,26 +1,43 @@
+// src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import votersData from "./data/voters.json";
-import bannerUrl from "./assets/banner.jpeg";
+import bannerUrl from "./assets/logo.jpg";
+import bannerUrl1 from "./assets/awe.jpeg";
+import bannerUrl2 from "./assets/banner.jpeg";
+import bannerUrl23 from "./assets/imagebanner.jpg";
 import resultPhoto from "./assets/mama.jpeg";
 
-// Decorative inlined tile background (kept as data URL)
-const tileBgDataUrl =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAd0AAADdCAIAAABxKD+NAAAQAElEQVR4AeydB3wUVdn/3e+e9+zsy5t3Z2b2d2d2Zl3Znd2bZ2d2bZ2d2bZ2d2bZ2d2bZ2d2bYt2kqkqS5KpUKhQqVKoUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSpUKlUqFSr6r8w3/8wAABgH/8wAAHHcD4x0mAABgC9v9bWz+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1+v1";
+/*
+  NOTE:
+  - Card header now displays only a banner image (per-voter if available).
+  - Banner is responsive, uses object-fit: cover, has lazy-loading and a graceful fallback.
+  - Circular profile photo / extra header text removed as requested.
+*/
+
+// Campaign constant used in share message
+// Campaign constant used in share message
+const CAMPAIGN_TITLE = `🌸 मतदान करा बापू तुकाराम महाजन यांना 🌸
+💪 विकास आणि जनसेवेच्या वाटचालीसाठी तुमचा एक मत द्या!
+
+✨ आपल्या भागाचा सर्वांगीण विकास, शिक्षण, रोजगार, आणि स्वच्छतेसाठी —
+एकत्र येऊया, बदल घडवूया!
+
+🙏 चला, बापू तुकाराम महाजन यांना आपला पाठिंबा द्या.
+आपले मत द्या — उज्वल भविष्यासाठी एक पाऊल पुढे टाका!
+
+#विकासासाठीबापू #जनतेचाआवाज #आपलाबापूमहाजन`;
 
 export default function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const timerRef = useRef(null);
 
+  // debounce search
   useEffect(() => {
-    // debounce search
-    if (timerRef.current) {
-      window.clearTimeout(timerRef.current);
-    }
+    if (timerRef.current) window.clearTimeout(timerRef.current);
 
     timerRef.current = window.setTimeout(() => {
       const q = query.trim();
-      // require at least 3 characters to search
       if (!q || q.length < 3) {
         setResults([]);
         return;
@@ -46,20 +63,95 @@ export default function App() {
     }, 160);
 
     return () => {
-      if (timerRef.current) {
-        window.clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) window.clearTimeout(timerRef.current);
     };
   }, [query]);
 
   const clearSearch = () => {
     setQuery("");
     setResults([]);
-    // safe focus without TypeScript casts
     document.getElementById("voter-search-input")?.focus();
   };
 
-  const nagarsevakMarathi = "श्री. बापू तुकराम महाजन";
+  // Carousel
+  const carouselImages = [bannerUrl, bannerUrl1, bannerUrl, bannerUrl23];
+  const [slide, setSlide] = useState(0);
+  const isPausedRef = useRef(false);
+  const AUTO_ADVANCE_MS = 1500;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!isPausedRef.current)
+        setSlide((s) => (s + 1) % carouselImages.length);
+    }, AUTO_ADVANCE_MS);
+    return () => clearInterval(id);
+  }, [carouselImages.length]);
+
+  const goTo = (i) =>
+    setSlide(
+      ((i % carouselImages.length) + carouselImages.length) %
+        carouselImages.length
+    );
+  const prevSlide = () =>
+    setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
+  const nextSlide = () => setSlide((s) => (s + 1) % carouselImages.length);
+
+  // Share via WhatsApp / Web Share API
+  const shareVoter = async (voter) => {
+    const name = voter.name_english || voter.name_marathi || "—";
+    const rel =
+      (voter.relative_name_english || voter.relative_name_marathi) ?? "—";
+    const id = voter.voter_id ?? "—";
+    const ward =
+      voter.ward || voter.ward_no || voter.wardNumber || voter.part_no || "—";
+    const box = voter.box_number ?? "—";
+    const part = voter.part_no ?? "—";
+    const addr = voter.address ?? "—";
+
+    // Professional, share-ready message (concise, readable)
+   const message =
+  `${CAMPAIGN_TITLE}\n\n` +
+  `🔹 नाव: ${name}\n` +
+  `🔹 नातेवाईक: ${rel}\n` +
+  `🔹 मतदान ओळख क्रमांक (Voter ID): ${id}\n` +
+  `🔹 विभाग / भाग क्र.: 7 (${ward} / ${part})\n` +
+  `🔹 बॉक्स क्रमांक: ${box}\n` +
+  `🔹 पत्ता: ${addr}\n` +
+  `🔹 वय / लिंग: ${voter.age ?? "—"} वर्षे • ${voter.gender || "—"}\n\n` +
+  `🗳️ आपल्या उमेदवारास पाठिंबा द्या — बापू तुकाराम महाजन यांना मतदान करा!\n` +
+  `🙏 हा संदेश पुढे पाठवा आणि विकासाच्या वाटचालीत सहभागी व्हा.`;
+
+
+    // First try Web Share API (mobile/native browsers)
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: CAMPAIGN_TITLE,
+          text: message,
+        });
+        return;
+      }
+    } catch (err) {
+      // silently continue to fallback
+      console.warn("Web Share failed, falling back to WhatsApp link", err);
+    }
+
+    // Fallback: WhatsApp prefilled message (works on desktop & mobile web)
+    const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    // attempt to open in new tab/window
+    window.open(wa, "_blank", "noopener,noreferrer");
+
+    // Additionally copy to clipboard as convenience when possible
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(message);
+        // Do not show alerts here — keep UX non-blocking. Integrate a toast in your app if desired.
+      }
+    } catch (err) {
+      // clipboard write failed — ignore
+    }
+  };
 
   return (
     <div
@@ -73,130 +165,110 @@ export default function App() {
       }}
     >
       <style>{`
-        :root{
-          --surface:#ffffff;
-          --muted:#94a3b8;
-          --accent:#0b57d0;
-          --soft:#eef2ff;
-          --card-shadow: 0 12px 36px rgba(2,6,23,0.06);
-        }
+        :root{ --surface:#ffffff; --muted:#94a3b8; --accent:#0b57d0; --soft:#eef2ff; --card-shadow: 0 12px 36px rgba(2,6,23,0.06); --gap:18px }
         .site-shell { max-width:1200px; margin:0 auto; padding:28px 20px; }
-        /* Header with subtle gradient background and rounded corners */
-        header{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; padding:12px 18px; border-radius:12px; background: linear-gradient(90deg, #0b57d0 0%, #0ea5e9 100%); color: #fff }
-        .brand { display:flex; gap:12px; align-items:center }
-        .brand h3{ margin:0; font-size:20px; color: #fff }
-        nav a{ color:rgba(255,255,255,0.95); text-decoration:none; margin-left:12px; font-size:14px }
 
-        .hero{ width:100%; border-radius:16px; overflow:hidden; position:relative; min-height:220px; display:flex; align-items:center; margin-bottom:36px }
-        .hero .banner{ position:absolute; inset:0; background-size:cover; background-position:center; filter: contrast(0.96) saturate(1.02) }
-        .hero .overlay{ position:absolute; inset:0; background:linear-gradient(180deg, rgba(2,6,23,0.18) 0%, rgba(2,6,23,0.38) 100%) }
-        .hero-inner{ position:relative; z-index:2; width:100%; padding:28px; display:flex; justify-content:space-between; align-items:center; gap:12px }
-        .hero-left{ color:white; max-width:72% }
-        .eyebrow{ font-size:13px; opacity:0.95; margin-bottom:6px }
-        .title{ font-size:26px; font-weight:800; margin:0 0 6px }
-        .subtitle{ font-size:10px; margin:0; opacity:0.95 }
-        .nagarsevak{ margin-top:10px; font-weight:700; color:#ffedd5 }
+        /* carousel/banner */
+        .hero{ width:100%; border-radius:16px; overflow:hidden; position:relative; display:flex; align-items:center; margin-bottom:36px }
+        .hero { height: clamp(220px, 30vh, 420px) }
+        .carousel{ position:relative; width:100%; height:100%; }
+        .carousel-track{ display:flex; height:100%; transition: transform 480ms cubic-bezier(.22,.9,.28,1); }
+        .carousel-slide{ min-width:100%; height:100%; position:relative; flex:0 0 100%; }
+        .carousel-slide img{ width:100%; height:100%; object-fit:cover; display:block }
+        .carousel-overlay{ position:absolute; inset:0; background: linear-gradient(180deg, rgba(2,6,23,0.18) 0%, rgba(2,6,23,0.38) 100%); pointer-events:none }
+        .carousel-dots{ position:absolute; left:50%; transform:translateX(-50%); bottom:12px; display:flex; gap:8px; z-index:5 }
+        .dot{ width:10px; height:10px; border-radius:999px; background:rgba(255,255,255,0.6); border:1px solid rgba(2,6,23,0.06); cursor:pointer }
+        .dot[aria-current='true']{ background:#fff; box-shadow:0 6px 18px rgba(2,6,23,0.12) }
+        .carousel-arrow{ position:absolute; top:50%; transform:translateY(-50%); z-index:6; background: rgba(255,255,255,0.92); border-radius:999px; border:0; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:20px; box-shadow: 0 6px 20px rgba(2,6,23,0.08) }
+        .carousel-arrow.left{ left:12px }
+        .carousel-arrow.right{ right:12px }
 
+        /* search and results */
         .search-wrap{ width:100%; max-width:980px; margin:-28px auto 0; padding:12px; display:flex; gap:12px; align-items:center; z-index:3 }
         .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:var(--card-shadow); border:1px solid rgba(223, 237, 236, 0.04); }
-        /* Ensure input text is visible and caret uses accent color */
-        .search-box input{ border:0; outline:0; width:100%; font-size:15px; background-color: transparent; color: #0f172a; caret-color: var(--accent); }
-        .search-box input::placeholder { color: #94a3b8; opacity:1 }
-        .search-box:focus-within{ box-shadow: 0 8px 28px rgba(11,87,208,0.12); }
-        .controls{ display:flex; gap:8px }
-        .btn{ background:var(--accent); color:#fff; border:0; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer }
-        .btn.secondary{ background:transparent; border:1px solid rgba(2,6,23,0.06); color:var(--muted) }
+        .search-box input{ border:0; outline:0; width:100%; font-size:clamp(14px, 1.6vw, 15px); background-color: transparent; color: #0f172a; caret-color: var(--accent); }
+        .search-box input::placeholder { color: #94a3b8; opacity: 1; }
+        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:var(--gap); align-items:start }
+        .card{ background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(2,6,23,0.04); box-shadow:var(--card-shadow); transition: transform .18s ease, box-shadow .18s ease; display:flex; flex-direction:column; position:relative }
 
-        /* Force two cards per row on wide screens (as requested) */
-        .results{ margin-top:28px; display:grid; grid-template-columns: repeat(2, 1fr); gap:18px }
+        /* Simplified professional card header: ONLY a banner image */
+        .card-header{ position:relative; width:100%; height: clamp(88px, 18vw, 160px); overflow:hidden; background:#f1f5f9 }
+        .card-header img.banner{ width:100%; height:150%; object-fit:cover; display:block; vertical-align:middle; }
 
-        .card{ background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(2,6,23,0.04); box-shadow:var(--card-shadow); transition: transform .18s ease, box-shadow .18s ease }
-        .card:hover{ transform: translateY(-6px); box-shadow: 0 22px 56px rgba(2,6,23,0.08) }
+        .card-body{ padding:18px 14px 14px 14px; display:flex; gap:12px; flex-direction:column; flex:1 }
 
-        /* Header layout: left = 50% slogan/name/ward, right = photo */
-        .card-header{ position:relative; padding:16px; display:flex; align-items:center; gap:12px; background-image:url("${tileBgDataUrl}"); background-size:cover; background-position:center; min-height:110px }
-        .card-header::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(208, 147, 147, 0.92), rgba(204, 162, 37, 0.92)); z-index:0 }
-        .header-left{ z-index:2; flex:1; display:flex; flex-direction:column; justify-content:center; min-width:0 }
-        .header-right{ z-index:2; width:130px; display:flex; justify-content:center; align-items:center }
-
-        .photo-circle{ width:110px; height:110px; border-radius:999px; object-fit:cover; border:3px solid rgba(255,255,255,0.95); box-shadow: 0 8px 22px rgba(2,6,23,0.12); }
-
-        .marathi-slogan{ font-size:14px; color:#475569; font-weight:500; margin-bottom:6px }
-        .slogan-badge{ display:inline-block; background:#f1f5f9; color:#1e3a8a; padding:6px 12px; border-radius:12px; font-size:13px; font-weight:700 }
-        .ward-badge{ margin-top:8px; display:inline-block; background:rgba(2,6,23,0.04); color:var(--accent); padding:6px 10px; border-radius:8px; font-weight:800 }
-
-        /* card body styles kept similar */
-        .card-body{ padding:16px; display:flex; gap:12px; flex-direction:column }
-        .header-text{ position:relative; z-index:1; min-width:0 }
-        .name-en{ font-size:16px; font-weight:800; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60ch }
-        .name-mr{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60ch }
-
-        .card-body .name-en{ color:#0f172a; text-shadow:none; }
-        .card-body .name-mr{ color:#475569; }
-
-        .details{ flex:1 }
-        .meta{ display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:13px }
-        .address{ margin-top:10px; color:#475569; font-size:13px }
-
-        footer{ margin-top:36px; text-align:center; color:var(--muted); font-size:13px }
+        /* share button */
+        .share-btn { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; border:0; background:transparent; color:var(--accent); }
+        .share-icon { width:18px; height:18px; display:inline-block; }
 
         @media(max-width:900px){
-          .results{ grid-template-columns: repeat(1, 1fr) }
-          .card-header{ min-height:100px }
-          .header-right{ width:100px }
-          .photo-circle{ width:88px; height:88px }
+          .results{ grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
         }
 
-        @media(max-width:600px){
-          .hero-inner{ padding:18px }
-          .hero-left{ max-width:100% }
-          .title{ font-size:20px }
-          .subtitle{ font-size:13px }
-          .card-header{ padding:12px }
-          .photo-circle{ width:72px; height:72px }
-          .slogan-badge{ padding:6px 8px }
-          .ward-badge{ padding:6px 8px }
-        }
-
-        @media(max-width:420px){
-          .hero-inner{ flex-direction:column; align-items:flex-start; gap:10px }
-          .search-wrap{ margin-top:12px }
+        @media(max-width:640px){
+          .site-shell{ padding:18px 12px }
+          .hero{ margin-bottom:18px }
+          .search-wrap{ max-width:100%; margin-top:12px; padding:10px }
+          .results{ gap:12px; grid-template-columns: 1fr; }
+          .card-body{ padding:14px 10px 10px 10px }
         }
       `}</style>
 
       <div className="site-shell">
-        <header>
-          <div className="brand" aria-hidden>
-            <div style={{ fontSize: 28 }}>🗳️</div>
-            <h3>Voter Search Portal </h3>
-          </div>
-
-          <nav aria-label="Main">
-            <a href="#home">Home</a>
-            <a href="#about">About</a>
-            <a href="#contact">Contact</a>
-          </nav>
-        </header>
-
         <section className="hero" aria-label="Campaign banner">
           <div
-            className="banner"
-            style={{ backgroundImage: `url(${bannerUrl})` }}
-            role="img"
-            aria-hidden
-          />
-          <div className="overlay" aria-hidden />
+            className="carousel"
+            onMouseEnter={() => (isPausedRef.current = true)}
+            onMouseLeave={() => (isPausedRef.current = false)}
+          >
+            <div
+              className="carousel-track"
+              style={{ transform: `translateX(-${slide * 100}%)` }}
+            >
+              {carouselImages.map((src, idx) => (
+                <div className="carousel-slide" key={idx}>
+                  <img
+                    src={src}
+                    alt={`Banner ${idx + 1}`}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.src = bannerUrl;
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
 
-          <div className="hero-inner">
-            <div className="hero-left"></div>
+            <div className="carousel-overlay" aria-hidden />
 
-            <div style={{ textAlign: "right" }}></div>
+            <div
+              className="carousel-dots"
+              role="tablist"
+              aria-label="Slide dots"
+            >
+              {carouselImages.map((_, i) => (
+                <button
+                  key={i}
+                  className="dot"
+                  aria-current={i === slide}
+                  onClick={() => goTo(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
           </div>
         </section>
 
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <div className="search-wrap" role="search">
-            <div className="search-box">
+          <div
+            className="search-wrap"
+            role="search"
+            style={{
+              boxShadow: "0 12px 36px rgba(2,6,23,0.04)",
+              background: "transparent",
+            }}
+          >
+            <div className="search-box" style={{ minWidth: 0 }}>
               <svg
                 width="20"
                 height="20"
@@ -231,6 +303,11 @@ export default function App() {
                 aria-label="Search voters by name or voter ID"
                 inputMode="text"
                 autoComplete="off"
+                style={{
+                  color: "#0f172a",
+                  fontSize: 15,
+                  lineHeight: "20px",
+                }}
               />
 
               {query && (
@@ -242,6 +319,8 @@ export default function App() {
                     border: "none",
                     background: "transparent",
                     cursor: "pointer",
+                    fontSize: 18,
+                    padding: 8,
                   }}
                 >
                   ✖
@@ -250,7 +329,18 @@ export default function App() {
             </div>
 
             <div className="controls" aria-hidden>
-              <button className="btn secondary" onClick={clearSearch}>
+              <button
+                className="btn secondary"
+                onClick={clearSearch}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  background: "white",
+                  border: "1px solid rgba(2,6,23,0.06)",
+                  boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+                  cursor: "pointer",
+                }}
+              >
                 Clear
               </button>
             </div>
@@ -269,10 +359,13 @@ export default function App() {
             <div style={{ color: "#475569", fontSize: 14 }}>
               {query && query.trim().length >= 3 ? (
                 <>
-                  <strong>{results.length}</strong> {results.length === 1 ? " record found" : " records found"}
+                  <strong>{results.length}</strong>{" "}
+                  {results.length === 1 ? " record found" : " records found"}
                 </>
               ) : (
-                <span style={{ color: "var(--muted)" }}>Type at least 3 characters to search</span>
+                <span style={{ color: "var(--muted)" }}>
+                  Type at least 3 characters to search
+                </span>
               )}
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}></div>
@@ -280,13 +373,17 @@ export default function App() {
 
           <div className="results" aria-live="polite">
             {query && query.trim().length > 0 && query.trim().length < 3 && (
-              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
+              <div
+                style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}
+              >
                 Please type at least 3 characters to start searching.
               </div>
             )}
 
             {query && query.trim().length >= 3 && results.length === 0 && (
-              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
+              <div
+                style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}
+              >
                 No records matched your search.
               </div>
             )}
@@ -295,16 +392,16 @@ export default function App() {
               const nameEn = voter.name_english || "—";
               const nameMr = voter.name_marathi || "—";
               const photo = voter.photo || resultPhoto;
-              const slogan = voter.slogan || "श्री. बापू तुकाराम महाजन";
-              const sloganMr =
-                voter.slogan_marathi ||
-                "सदैव संपर्कात विश्वास जुना नगरसेवक पुन्हा";
               const ward =
                 voter.ward ||
                 voter.ward_no ||
                 voter.wardNumber ||
                 voter.part_no ||
                 7;
+
+              // use per-voter banner if available (field: card_banner or header_image), otherwise fallback to global banner
+              const cardBanner =
+                voter.card_banner || voter.header_image || bannerUrl2;
 
               return (
                 <article
@@ -320,35 +417,31 @@ export default function App() {
                     background: "#fff",
                   }}
                 >
-                  <div className="card-header">
-                    <div className="header-left">
-                      <div className="marathi-slogan">{sloganMr}</div>
-                      <div style={{ marginTop: 6 }}>
-                        <span className="slogan-badge" aria-hidden>
-                          {slogan.length > 40 ? slogan.slice(0, 38) + "…" : slogan}
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="ward-badge">Ward 7 ( {ward} )</span>
-                      </div>
-                    </div>
-
-                    <div className="header-right">
-                      <img
-                        className="photo-circle"
-                        src={photo}
-                        alt={nameEn || nameMr}
-                        onError={(e) => {
-                          e.currentTarget.src = resultPhoto;
-                        }}
-                      />
-                    </div>
+                  {/* Simplified header: only banner image */}
+                  <div className="card-header" aria-hidden>
+                    <img
+                      className="banner"
+                      src={cardBanner}
+                      alt={`Banner for ${nameEn}`}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.src = bannerUrl;
+                      }}
+                    />
                   </div>
 
                   <div className="card-body">
-                    <div style={{ marginBottom: 6, textAlign: "center" }}>
+                    <div
+                      style={{
+                        marginBottom: 6,
+                        textAlign: "center",
+                        position: "relative",
+                      }}
+                    >
                       <div className="header-text" style={{ color: "#0f172a" }}>
+                        <span style={{ fontSize: 15, color: "#334155" }}>
+                          Ward 7 ( {ward} )
+                        </span>
                         <div
                           className="name-en"
                           title={nameEn}
@@ -363,6 +456,53 @@ export default function App() {
                         >
                           {nameMr}
                         </div>
+                      </div>
+
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 8,
+                          top: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <button
+                          onClick={() => shareVoter(voter)}
+                          className="share-btn"
+                          aria-label={`Share ${nameEn || nameMr} via WhatsApp`}
+                          title="Share via WhatsApp"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 6,
+                            display: "inline-flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="share-icon"
+                            style={{ width: 20, height: 20 }}
+                            aria-hidden
+                            focusable="false"
+                          >
+                            <path
+                              d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
+                              fill="#25D366"
+                            />
+                            <path
+                              d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z"
+                              fill="#fff"
+                            />
+                          </svg>
+
+                          <span style={{ fontSize: 13, color: "#0b57d0" }}>
+                            Share
+                          </span>
+                        </button>
                       </div>
                     </div>
 
@@ -380,7 +520,7 @@ export default function App() {
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13 }}>
                             <strong>Relative:</strong>{" "}
-                            {voter.relative_name_english || "—"} / {" "}
+                            {voter.relative_name_english || "—"} /{" "}
                             {voter.relative_name_marathi || "—"}
                           </div>
                           <div style={{ marginTop: 6, fontSize: 13 }}>
@@ -428,7 +568,7 @@ export default function App() {
           </div>
         </main>
 
-        <footer>
+        <footer style={{ marginTop: 24 }}>
           <div
             style={{
               textAlign: "right",
@@ -440,7 +580,8 @@ export default function App() {
           >
             Total Records: <strong>{votersData.length}</strong>
           </div>
-          © {new Date().getFullYear()} Voter Search — built with Lalit Mali ❤️
+          © {new Date().getFullYear()} Voter Search — built with Lalit Mali
+          (7775025688) ❤️
         </footer>
       </div>
     </div>

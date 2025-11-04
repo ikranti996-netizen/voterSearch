@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import votersData from "./data/voters.json";
-import bannerUrl from "./assets/logo.jpg";
+import bannerUrl from "./assets/LOGO.jpg";
 import bannerUrl1 from "./assets/awe.jpeg";
 import bannerUrl2 from "./assets/banner.jpeg";
 import bannerUrl23 from "./assets/imagebanner.jpg";

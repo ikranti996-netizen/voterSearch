@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import votersData from "./data/voters.json";
@@ -7,12 +6,9 @@ import bannerUrl1 from "./assets/awe.jpeg";
 import bannerUrl2 from "./assets/banner.jpeg";
 import bannerUrl23 from "./assets/imagebanner.jpg";
 import resultPhoto from "./assets/mama.jpeg";
-
-/*
- Single-button share: capture card image.
- - Currently shares ONLY the image.
- - The information text is commented out; uncomment later when you want image+text.
-*/
+import new1 from "./assets/new2.jpg";
+import new2 from "./assets/new3.jpg";
+import new4 from "./assets/new4.jpg";
 
 const CAMPAIGN_TITLE = `🌸 मतदान करा बापू तुकाराम महाजन यांना 🌸
 💪 विकास आणि जनसेवेच्या वाटचालीसाठी तुमचा एक मत द्या!
@@ -34,13 +30,13 @@ export default function App() {
   const [snapshotLoadingFor, setSnapshotLoadingFor] = useState(null);
   const [snapshotMessage, setSnapshotMessage] = useState("");
 
-  // debounce search
+  // debounce + fuzzy search
   useEffect(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
 
     timerRef.current = window.setTimeout(() => {
       const q = query.trim();
-      if (!q || q.length < 3) {
+      if (!q || q.length < 1) {
         setResults([]);
         return;
       }
@@ -54,11 +50,13 @@ export default function App() {
         const rm = (voter.relative_name_marathi || "").toLocaleLowerCase();
         const id = (voter.voter_id || "").toLocaleLowerCase();
 
-        const matchMarathi = nm.includes(qLower) || rm.includes(qLower);
-        const matchEnglish =
-          ne.includes(qLower) || re.includes(qLower) || id.includes(qLower);
-
-        return matchMarathi || matchEnglish;
+        return (
+          fuzzyIncludes(nm, qLower) ||
+          fuzzyIncludes(rm, qLower) ||
+          fuzzyIncludes(ne, qLower) ||
+          fuzzyIncludes(re, qLower) ||
+          fuzzyIncludes(id, qLower)
+        );
       });
 
       setResults(filtered);
@@ -76,7 +74,7 @@ export default function App() {
   };
 
   // Carousel
-  const carouselImages = [bannerUrl, bannerUrl1, bannerUrl, bannerUrl23];
+  const carouselImages = [new2, bannerUrl, new1, new4, bannerUrl1];
   const [slide, setSlide] = useState(0);
   const isPausedRef = useRef(false);
   const AUTO_ADVANCE_MS = 1500;
@@ -98,41 +96,86 @@ export default function App() {
     setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
   const nextSlide = () => setSlide((s) => (s + 1) % carouselImages.length);
 
-  // SINGLE BUTTON: capture card image and share ONLY the image for now
-  const shareCardWithInfo = async (voter) => {
-    const cardId =
-      "card-" + (voter.voter_id || `${voter.box_number}-${voter.part_no}`);
-    const node = document.getElementById(cardId);
-    if (!node) {
-      alert("Card element not found.");
-      return;
+  // Utility: extract a simple house number (first digits sequence) from address
+  const extractHouseNumber = (addr = "") => {
+    if (!addr) return "—";
+    const m = String(addr).match(/\d+[A-Za-z\/\-]*/);
+    return m ? m[0] : "—";
+  };
+
+  // -------------------------
+  // Marathi / Indic fuzzy helpers
+  // -------------------------
+  function normalizeIndic(s = "") {
+    if (!s) return "";
+    return s
+      .normalize("NFC")
+      .toLocaleLowerCase()
+      .replace(/[़ँंः]/g, "")
+      .replace(/[ू]/g, "ु")
+      .replace(/[ी]/g, "ि")
+      .replace(/[\u0964\u0965]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function stripMatras(s = "") {
+    return (s || "")
+      .replace(/[ ािीुूेैोौृॉॅ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function levenshtein(a = "", b = "") {
+    const al = a.length;
+    const bl = b.length;
+    if (al === 0) return bl;
+    if (bl === 0) return al;
+    const dp = Array.from({ length: al + 1 }, () => new Array(bl + 1).fill(0));
+    for (let i = 0; i <= al; i++) dp[i][0] = i;
+    for (let j = 0; j <= bl; j++) dp[0][j] = j;
+    for (let i = 1; i <= al; i++) {
+      for (let j = 1; j <= bl; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
     }
+    return dp[al][bl];
+  }
 
-    // -------------------------
-    // If you want to share text+image later, uncomment and use `textToShare`.
-    // For now we keep text commented so only image is shared.
-    // -------------------------
-    /*
-    const name = voter.name_marathi || voter.name_english || "—";
-    const rel = voter.relative_name_marathi || voter.relative_name_english || "—";
-    const id = voter.voter_id || "—";
-    const ward = voter.ward || voter.ward_no || voter.part_no || "—";
-    const box = voter.box_number ?? "—";
-    const addr = voter.address || "—";
-    const age = voter.age ?? "—";
-    const gender = voter.gender || "—";
+  function fuzzyIncludes(field = "", q = "") {
+    if (!field || !q) return false;
+    if (field.includes(q)) return true;
 
-    const textToShare =
-      `${CAMPAIGN_TITLE}\n\n` +
-      `🔹 नाव: ${name}\n` +
-      `🔹 नातेवाईक: ${rel}\n` +
-      `🔹 मतदान ओळख क्रमांक (Voter ID): ${id}\n` +
-      `🔹 विभाग / भाग क्र.: 7 (${ward})\n` +
-      `🔹 बॉक्स क्रमांक: ${box}\n` +
-      `🔹 पत्ता: ${addr}\n` +
-      `🔹 वय / लिंग: ${age} वर्षे • ${gender}\n\n` +
-      `🗳️ बापू तुकाराम महाजन यांना मतदान करा — कृपया हा कार्ड शेअर करा आणि पाठिंबा द्या!`;
-    */
+    const nf = normalizeIndic(field);
+    const nq = normalizeIndic(q);
+    if (nf.includes(nq)) return true;
+
+    const sf = stripMatras(nf);
+    const sq = stripMatras(nq);
+    if (sf && sq && sf.includes(sq)) return true;
+
+    const maxAllowed = Math.max(1, Math.floor(Math.max(nq.length * 0.3, 2)));
+    const dist = levenshtein(nf, nq);
+    if (dist <= maxAllowed) return true;
+
+    return false;
+  }
+
+  // Share card as image (uses html2canvas). Must be async and defined inside the component.
+  const shareCardWithInfo = async (voter, e) => {
+    // prevent card click toggling
+    if (e && e.stopPropagation) e.stopPropagation();
+
+    const cardId = `card-${
+      voter.voter_id || `${voter.box_number}-${voter.part_no}`
+    }`;
+    const node = document.getElementById(cardId);
+    if (!node) return;
 
     setSnapshotLoadingFor(cardId);
     setSnapshotMessage("Preparing image...");
@@ -160,24 +203,19 @@ export default function App() {
       const fileName = `${nameForFile}-card.png`;
       const file = new File([blob], fileName, { type: "image/png" });
 
-      // 1) Preferred: Web Share API with files (files only for now)
+      // 1) Preferred: Web Share API with files
       if (
         navigator.share &&
         navigator.canShare &&
         navigator.canShare({ files: [file] })
       ) {
         try {
-          await navigator.share({
-            files: [file],
-            title: "Voter Card",
-            // text: textToShare, // <-- commented: do not share text now
-          });
+          await navigator.share({ files: [file], title: "Voter Card" });
           setSnapshotMessage("Shared!");
           setTimeout(() => setSnapshotLoadingFor(null), 900);
           return;
         } catch (err) {
           console.warn("navigator.share with files failed:", err);
-          // fall through to clipboard fallback
         }
       }
 
@@ -192,7 +230,6 @@ export default function App() {
           return;
         } catch (err) {
           console.warn("clipboard image write failed:", err);
-          // fall through to final fallback
         }
       }
 
@@ -208,7 +245,82 @@ export default function App() {
       setTimeout(() => setSnapshotLoadingFor(null), 1500);
     }
   };
+  // Inline style objects
+  const footerWrap = {
+    marginTop: 24,
+    padding: "18px 20px",
+    borderRadius: 12,
+    boxShadow: "0 8px 30px rgba(2,6,23,0.08)",
+    background:
+      "linear-gradient(90deg, rgba(255,246,238,1) 0%, rgba(255,241,245,0.8) 100%)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 10,
+    position: "relative",
+    overflow: "hidden",
+    willChange: "transform",
+    animation: "float 6s ease-in-out infinite",
+  };
 
+  const topRight = {
+    alignSelf: "stretch",
+    textAlign: "right",
+    color: "#475569",
+    fontSize: 13,
+    marginBottom: 2,
+  };
+
+  const marqueeContainer = {
+    width: "100%",
+    maxWidth: 720,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    display: "block",
+    borderRadius: 10,
+    padding: "6px 12px",
+    boxSizing: "border-box",
+    background:
+      "linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.15))",
+    backdropFilter: "saturate(140%) blur(6px)",
+    border: "1px solid rgba(255,255,255,0.35)",
+  };
+
+  const marqueeText = {
+    display: "inline-block",
+    fontSize: 18,
+    fontWeight: 700,
+    letterSpacing: "0.2px",
+    textTransform: "none",
+    transform: "translateX(100%)",
+    animation: "marquee 12s linear infinite",
+    willChange: "transform",
+  };
+
+  const heart = {
+    display: "inline-block",
+    marginLeft: 10,
+    transformOrigin: "center",
+    animation: "pulse 1.2s ease-in-out infinite",
+    fontSize: 18,
+  };
+
+  const copyright = {
+    fontSize: 13,
+    color: "#334155",
+    marginTop: 6,
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+  };
+
+  const tinyHeart = {
+    display: "inline-block",
+    animation: "tinyPulse 1.6s ease-in-out infinite",
+    transformOrigin: "center",
+    fontSize: 14,
+    marginLeft: 6,
+  };
   return (
     <div
       style={{
@@ -220,6 +332,8 @@ export default function App() {
         paddingBottom: 40,
       }}
     >
+      {/* (UI markup identical to previous file) */}
+
       <style>{`
         :root{ --surface:#ffffff; --muted:#94a3b8; --accent:#0b57d0; --soft:#eef2ff; --card-shadow: 0 12px 36px rgba(2,6,23,0.06); --gap:18px; }
         .site-shell { max-width:1200px; margin:0 auto; padding:28px 20px; }
@@ -285,7 +399,6 @@ export default function App() {
           .card-body{ padding:14px 10px 10px 10px }
         }
       `}</style>
-
       <div className="site-shell">
         <section className="hero" aria-label="Campaign banner">
           <div
@@ -669,19 +782,63 @@ export default function App() {
           </div>
         </main>
 
-        <footer style={{ marginTop: 24 }}>
-          <div
-            style={{
-              textAlign: "right",
-              width: "100%",
-              marginBottom: 6,
-              color: "#475569",
-              fontSize: 13,
-            }}
-          >
+        <footer style={footerWrap}>
+          {/* Keyframes must be in a style block; everything else uses inline styles */}
+          <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.18); }
+          100% { transform: scale(1); }
+        }
+        @keyframes tinyPulse {
+          0% { transform: scale(1); opacity: 0.95; }
+          50% { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.95; }
+        }
+        @keyframes float {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+          100% { transform: translateY(0); }
+        }
+
+        /* Optional little shimmer on hover for the marquee */
+        .marqueeHover:hover { box-shadow: 0 10px 30px rgba(2,6,23,0.08); transform: translateY(-3px); transition: transform 300ms ease, box-shadow 300ms ease; }
+
+        /* Make marquee pause on hover (nice for long screens) */
+        .marqueeText:hover { animationPlayState: paused; cursor: default; }
+      `}</style>
+
+          <div style={topRight}>
             Total Records: <strong>{votersData.length}</strong>
           </div>
-          © {new Date().getFullYear()} Voter Search — built with Lalit Mali ❤️
+
+          <div
+            style={marqueeContainer}
+            className="marqueeHover"
+            aria-hidden={false}
+            aria-live="polite"
+          >
+            {/* Marathi phrase - change this text if you want different spelling */}
+            <div style={marqueeText} className="marqueeText">
+              एकच वादा करण दादा
+              <span style={heart} aria-hidden="true">
+                ❤️
+              </span>
+            </div>
+          </div>
+
+          <div style={copyright}>
+            <span>
+              © {new Date().getFullYear()} Voter Search — built with Lalit Mali
+            </span>
+            <span style={tinyHeart} aria-hidden="true">
+              ❤️
+            </span>
+          </div>
         </footer>
       </div>
     </div>

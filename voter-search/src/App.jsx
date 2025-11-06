@@ -855,6 +855,35 @@ export default function App() {
             </span>
           </div>
         </footer>
+
+        {/* POST-FOOTER BANNER (visible after the footer) */}
+        <div
+          id="post-footer-banner"
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginTop: 12,
+            padding: "0 20px",
+          }}
+        >
+          <img
+            src={bannerUrl23}
+            alt="Footer banner"
+            loading="lazy"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              e.currentTarget.src = bannerUrl;
+            }}
+            style={{
+              width: "100%",
+              maxWidth: 1100,
+              height: "auto",
+              borderRadius: 12,
+              boxShadow: "0 12px 36px rgba(2,6,23,0.06)",
+              display: "block",
+            }}
+          />
+        </div>
       </div>
     </div>
   );

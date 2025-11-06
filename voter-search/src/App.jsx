@@ -832,9 +832,24 @@ export default function App() {
           </div>
 
           <div style={copyright}>
-            <span>
-              © {new Date().getFullYear()} Voter Search — built with Lalit Mali
+            <span style={{ fontSize: 13, color: "#475569" }}>
+              © {new Date().getFullYear()} Voter Search — built with{" "}
+              <strong style={{ color: "#e11d48", fontWeight: 600 }}>
+                Lalit Mali
+              </strong>{" "}
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 300,
+                  color: "#16a34a",
+                  marginLeft: 6,
+                  letterSpacing: "0.5px",
+                }}
+              >
+                7775025688
+              </span>
             </span>
+
             <span style={tinyHeart} aria-hidden="true">
               ❤️
             </span>

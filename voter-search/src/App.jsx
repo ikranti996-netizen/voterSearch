@@ -472,15 +472,7 @@ export default function App() {
               />
 
               <div className="search-actions" style={{ marginLeft: 6 }}>
-                <button
-                  className="btn-search"
-                  title="Search"
-                  onClick={() => runSearch(query)}
-                  aria-label="Run search"
-                >
-                  Search
-                </button>
-
+               
                 <button
                   className="btn-clear"
                   onClick={clearSearch}

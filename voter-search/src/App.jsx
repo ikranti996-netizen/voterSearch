@@ -30,49 +30,6 @@ export default function App() {
   const [snapshotLoadingFor, setSnapshotLoadingFor] = useState(null);
   const [snapshotMessage, setSnapshotMessage] = useState("");
 
-  // debounce + fuzzy search
-  useEffect(() => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-
-    timerRef.current = window.setTimeout(() => {
-      const q = query.trim();
-      if (!q || q.length < 1) {
-        setResults([]);
-        return;
-      }
-
-      const qLower = q.toLocaleLowerCase();
-
-      const filtered = votersData.filter((voter) => {
-        const ne = (voter.name_english || "").toLocaleLowerCase();
-        const nm = (voter.name_marathi || "").toLocaleLowerCase();
-        const re = (voter.relative_name_english || "").toLocaleLowerCase();
-        const rm = (voter.relative_name_marathi || "").toLocaleLowerCase();
-        const id = (voter.voter_id || "").toLocaleLowerCase();
-
-        return (
-          fuzzyIncludes(nm, qLower) ||
-          fuzzyIncludes(rm, qLower) ||
-          fuzzyIncludes(ne, qLower) ||
-          fuzzyIncludes(re, qLower) ||
-          fuzzyIncludes(id, qLower)
-        );
-      });
-
-      setResults(filtered);
-    }, 160);
-
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
-  }, [query]);
-
-  const clearSearch = () => {
-    setQuery("");
-    setResults([]);
-    document.getElementById("voter-search-input")?.focus();
-  };
-
   // Carousel
   const carouselImages = [new2, bannerUrl, new1, new4, bannerUrl1];
   const [slide, setSlide] = useState(0);
@@ -81,19 +38,14 @@ export default function App() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!isPausedRef.current)
-        setSlide((s) => (s + 1) % carouselImages.length);
+      if (!isPausedRef.current) setSlide((s) => (s + 1) % carouselImages.length);
     }, AUTO_ADVANCE_MS);
     return () => clearInterval(id);
   }, [carouselImages.length]);
 
   const goTo = (i) =>
-    setSlide(
-      ((i % carouselImages.length) + carouselImages.length) %
-        carouselImages.length
-    );
-  const prevSlide = () =>
-    setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
+    setSlide(((i % carouselImages.length) + carouselImages.length) % carouselImages.length);
+  const prevSlide = () => setSlide((s) => (s - 1 + carouselImages.length) % carouselImages.length);
   const nextSlide = () => setSlide((s) => (s + 1) % carouselImages.length);
 
   // Utility: extract a simple house number (first digits sequence) from address
@@ -108,7 +60,7 @@ export default function App() {
   // -------------------------
   function normalizeIndic(s = "") {
     if (!s) return "";
-    return s
+    return String(s)
       .normalize("NFC")
       .toLocaleLowerCase()
       .replace(/[़ँंः]/g, "")
@@ -120,10 +72,7 @@ export default function App() {
   }
 
   function stripMatras(s = "") {
-    return (s || "")
-      .replace(/[ ािीुूेैोौृॉॅ]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    return (s || "").replace(/[ ािीुूेैोौृॉॅ]/g, "").replace(/\s+/g, " ").trim();
   }
 
   function levenshtein(a = "", b = "") {
@@ -137,43 +86,117 @@ export default function App() {
     for (let i = 1; i <= al; i++) {
       for (let j = 1; j <= bl; j++) {
         const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + cost
-        );
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
       }
     }
     return dp[al][bl];
   }
 
-  function fuzzyIncludes(field = "", q = "") {
-    if (!field || !q) return false;
-    if (field.includes(q)) return true;
+  // --- Improved tokenized, order-insensitive fuzzy search functions ---
+  // tokenize a string into words (unicode-aware)
+  function tokenizeQuery(raw = "") {
+    if (!raw) return [];
+    return String(raw)
+      .split(/[^\p{L}\p{N}_]+/u)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
 
-    const nf = normalizeIndic(field);
-    const nq = normalizeIndic(q);
-    if (nf.includes(nq)) return true;
+  // fuzzy match a single token against a field
+  function fuzzyTokenMatch(field = "", token = "") {
+    if (!field || !token) return false;
 
-    const sf = stripMatras(nf);
-    const sq = stripMatras(nq);
-    if (sf && sq && sf.includes(sq)) return true;
+    const f = normalizeIndic(String(field));
+    const t = normalizeIndic(String(token));
 
-    const maxAllowed = Math.max(1, Math.floor(Math.max(nq.length * 0.3, 2)));
-    const dist = levenshtein(nf, nq);
-    if (dist <= maxAllowed) return true;
+    // quick substring
+    if (f.includes(t)) return true;
+
+    // matra-insensitive quick path
+    const sf = stripMatras(f);
+    const st = stripMatras(t);
+    if (sf && st && sf.includes(st)) return true;
+
+    // check against field tokens (helps with swapped order)
+    const fieldTokens = tokenizeQuery(f);
+    for (const ftRaw of fieldTokens) {
+      if (!ftRaw) continue;
+      const ft = ftRaw;
+      if (ft.includes(t)) return true;
+      if (stripMatras(ft).includes(st)) return true;
+
+      // small edit distance allowance for token-level typos
+      const maxAllowed = Math.max(1, Math.floor(Math.max(st.length * 0.34, 1)));
+      const dist = levenshtein(ft, t);
+      if (dist <= maxAllowed) return true;
+    }
+
+    // final fallback: small edit distance against whole field
+    const wholeDist = levenshtein(f, t);
+    const wholeAllowed = Math.max(1, Math.floor(Math.max(t.length * 0.34, 1)));
+    if (wholeDist <= wholeAllowed) return true;
 
     return false;
   }
 
-  // Share card as image (uses html2canvas). Must be async and defined inside the component.
+  // run the token-based search over votersData
+  function runSearch(rawQuery = "") {
+    const q = String(rawQuery || "").trim();
+    if (!q) {
+      setResults([]);
+      return [];
+    }
+
+    // optional: require at least 2 or 3 characters for meaningful search
+    if (q.length < 2) {
+      setResults([]);
+      return [];
+    }
+
+    const tokens = tokenizeQuery(q);
+
+    const filtered = votersData.filter((voter) => {
+      const fields = [
+        voter.name_marathi || "",
+        voter.name_english || "",
+        voter.relative_name_marathi || "",
+        voter.relative_name_english || "",
+        voter.voter_id || "",
+        voter.address || "",
+      ].filter(Boolean);
+
+      // every query token must match at least one field (order-insensitive)
+      return tokens.every((tk) => fields.some((f) => fuzzyTokenMatch(f, tk)));
+    });
+
+    setResults(filtered);
+    return filtered;
+  }
+
+  // debounce + fuzzy search (runs while typing)
+  useEffect(() => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+
+    timerRef.current = window.setTimeout(() => {
+      runSearch(query);
+    }, 200);
+
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [query]);
+
+  const clearSearch = () => {
+    setQuery("");
+    setResults([]);
+    document.getElementById("voter-search-input")?.focus();
+  };
+
+  // Share card as image (uses html2canvas)
   const shareCardWithInfo = async (voter, e) => {
-    // prevent card click toggling
     if (e && e.stopPropagation) e.stopPropagation();
 
-    const cardId = `card-${
-      voter.voter_id || `${voter.box_number}-${voter.part_no}`
-    }`;
+    const cardId = `card-${voter.voter_id || `${voter.box_number}-${voter.part_no}`}`;
     const node = document.getElementById(cardId);
     if (!node) return;
 
@@ -191,10 +214,7 @@ export default function App() {
 
       node.classList.remove("snapshot-active");
 
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/png")
-      );
-
+      const blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
       if (!blob) throw new Error("Failed to create image blob");
 
       const nameForFile = (voter.name_marathi || voter.name_english || "voter")
@@ -203,12 +223,8 @@ export default function App() {
       const fileName = `${nameForFile}-card.png`;
       const file = new File([blob], fileName, { type: "image/png" });
 
-      // 1) Preferred: Web Share API with files
-      if (
-        navigator.share &&
-        navigator.canShare &&
-        navigator.canShare({ files: [file] })
-      ) {
+      // 1) Web Share API with files
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: "Voter Card" });
           setSnapshotMessage("Shared!");
@@ -219,12 +235,10 @@ export default function App() {
         }
       }
 
-      // 2) Clipboard fallback: try to write image to clipboard (secure contexts)
+      // 2) Clipboard fallback
       if (navigator.clipboard && window.ClipboardItem) {
         try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob }),
-          ]);
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
           setSnapshotMessage("Image copied to clipboard — paste into chat.");
           setTimeout(() => setSnapshotLoadingFor(null), 1600);
           return;
@@ -233,10 +247,9 @@ export default function App() {
         }
       }
 
-      // 3) Final fallback: open the image in a new tab (user can save/attach manually)
+      // 3) Open in new tab
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank", "noopener,noreferrer");
-
       setSnapshotMessage("Image opened in new tab — save & attach manually.");
       setTimeout(() => setSnapshotLoadingFor(null), 1800);
     } catch (err) {
@@ -245,14 +258,14 @@ export default function App() {
       setTimeout(() => setSnapshotLoadingFor(null), 1500);
     }
   };
-  // Inline style objects
+
+  // Inline style objects (declared before JSX so nothing is undefined)
   const footerWrap = {
     marginTop: 24,
     padding: "18px 20px",
     borderRadius: 12,
     boxShadow: "0 8px 30px rgba(2,6,23,0.08)",
-    background:
-      "linear-gradient(90deg, rgba(255,246,238,1) 0%, rgba(255,241,245,0.8) 100%)",
+    background: "linear-gradient(90deg, rgba(255,246,238,1) 0%, rgba(255,241,245,0.8) 100%)",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -280,8 +293,7 @@ export default function App() {
     borderRadius: 10,
     padding: "6px 12px",
     boxSizing: "border-box",
-    background:
-      "linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.15))",
+    background: "linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.15))",
     backdropFilter: "saturate(140%) blur(6px)",
     border: "1px solid rgba(255,255,255,0.35)",
   };
@@ -321,19 +333,19 @@ export default function App() {
     fontSize: 14,
     marginLeft: 6,
   };
+
+  const clearDisabled = !query || query.trim().length === 0;
+
   return (
     <div
       style={{
-        fontFamily:
-          "Inter, system-ui, -apple-system, Roboto, Arial, sans-serif",
+        fontFamily: "Inter, system-ui, -apple-system, Roboto, Arial, sans-serif",
         minHeight: "100vh",
         background: "linear-gradient(180deg,#f8fafc 0%, #f1f5f9 100%)",
         color: "#0f172a",
         paddingBottom: 40,
       }}
     >
-      {/* (UI markup identical to previous file) */}
-
       <style>{`
         :root{ --surface:#ffffff; --muted:#94a3b8; --accent:#0b57d0; --soft:#eef2ff; --card-shadow: 0 12px 36px rgba(2,6,23,0.06); --gap:18px; }
         .site-shell { max-width:1200px; margin:0 auto; padding:28px 20px; }
@@ -349,14 +361,17 @@ export default function App() {
         .dot{ width:10px; height:10px; border-radius:999px; background:rgba(255,255,255,0.6); border:1px solid rgba(2,6,23,0.06); cursor:pointer }
         .dot[aria-current='true']{ background:#fff; box-shadow:0 6px 18px rgba(2,6,23,0.12) }
 
+        /* Keep search input and buttons always on one row */
         .search-wrap{ width:100%; max-width:980px; margin:-28px auto 0; padding:12px; display:flex; gap:12px; align-items:center; z-index:3 }
-        .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:12px; box-shadow:var(--card-shadow); border:1px solid rgba(223, 237, 236, 0.04); }
-        .search-box input{ border:0; outline:0; width:100%; font-size:clamp(14px, 1.6vw, 15px); background-color: transparent; color: #0f172a; caret-color: var(--accent); }
+        .search-box{ flex:1; background:var(--surface); border-radius:14px; padding:8px 10px; display:flex; align-items:center; gap:8px; box-shadow:var(--card-shadow); border:1px solid rgba(223, 237, 236, 0.04); }
+        /* light blue input */
+        .search-box input{ border:0; outline:0; width:100%; font-size:clamp(14px, 1.6vw, 15px); background-color: #eef8ff; color: #0f172a; caret-color: var(--accent); padding:8px; border-radius:8px }
         .search-box input::placeholder { color: #94a3b8; opacity: 1; }
 
-        .btn-clear { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; border:0; background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(11,87,208,0.18); transition: transform .12s ease, box-shadow .12s ease, opacity .12s; }
-        .btn-clear:active{ transform: translateY(1px) }
-        .btn-clear[disabled]{ opacity: .6; cursor: default }
+        .search-actions{ display:flex; gap:8px; align-items:center }
+        .btn-search{ padding:8px 12px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; border:0; background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(11,87,208,0.18); }
+        .btn-clear { padding:8px 12px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; border:1px solid rgba(2,6,23,0.08); background: white; color: #0b57d0; }
+        .btn-clear[disabled]{ opacity:.5; cursor:default }
 
         .results{ margin-top:28px; display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:var(--gap); align-items:start }
 
@@ -397,8 +412,10 @@ export default function App() {
           .search-wrap{ max-width:100%; margin-top:12px; padding:10px }
           .results{ gap:12px; grid-template-columns: 1fr; }
           .card-body{ padding:14px 10px 10px 10px }
+          .search-actions{ flex-shrink:0 }
         }
       `}</style>
+
       <div className="site-shell">
         <section className="hero" aria-label="Campaign banner">
           <div
@@ -406,10 +423,7 @@ export default function App() {
             onMouseEnter={() => (isPausedRef.current = true)}
             onMouseLeave={() => (isPausedRef.current = false)}
           >
-            <div
-              className="carousel-track"
-              style={{ transform: `translateX(-${slide * 100}%)` }}
-            >
+            <div className="carousel-track" style={{ transform: `translateX(-${slide * 100}%)` }}>
               {carouselImages.map((src, idx) => (
                 <div className="carousel-slide" key={idx}>
                   <img
@@ -427,58 +441,20 @@ export default function App() {
 
             <div className="carousel-overlay" aria-hidden />
 
-            <div
-              className="carousel-dots"
-              role="tablist"
-              aria-label="Slide dots"
-            >
+            <div className="carousel-dots" role="tablist" aria-label="Slide dots">
               {carouselImages.map((_, i) => (
-                <button
-                  key={i}
-                  className="dot"
-                  aria-current={i === slide}
-                  onClick={() => goTo(i)}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
+                <button key={i} className="dot" aria-current={i === slide} onClick={() => goTo(i)} aria-label={`Go to slide ${i + 1}`} />
               ))}
             </div>
           </div>
         </section>
 
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <div
-            className="search-wrap"
-            role="search"
-            style={{
-              boxShadow: "0 12px 36px rgba(2,6,23,0.04)",
-              background: "transparent",
-            }}
-          >
+          <div className="search-wrap" role="search" style={{ boxShadow: "0 12px 36px rgba(2,6,23,0.04)", background: "transparent" }}>
             <div className="search-box" style={{ minWidth: 0 }}>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden
-                focusable="false"
-              >
-                <path
-                  d="M21 21l-4.35-4.35"
-                  stroke="#94a3b8"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                ></path>
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="6"
-                  stroke="#94a3b8"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                ></circle>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+                <path d="M21 21l-4.35-4.35" stroke="#94a3b8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"></path>
+                <circle cx="11" cy="11" r="6" stroke="#94a3b8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"></circle>
               </svg>
 
               <input
@@ -489,81 +465,37 @@ export default function App() {
                 aria-label="Search voters by name or voter ID"
                 inputMode="text"
                 autoComplete="off"
-                style={{
-                  color: "#0f172a",
-                  fontSize: 15,
-                  lineHeight: "20px",
+                className="voter-input"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") runSearch(query);
                 }}
               />
 
-              {query && (
-                <button
-                  aria-label="Clear query"
-                  title="Clear"
-                  onClick={() => setQuery("")}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    fontSize: 18,
-                    padding: 8,
-                  }}
-                >
-                  ✖
-                </button>
-              )}
-            </div>
-
-            <div className="controls" aria-hidden>
-              {query ? (
+              <div className="search-actions" style={{ marginLeft: 6 }}>
+               
                 <button
                   className="btn-clear"
                   onClick={clearSearch}
                   title="Clear search"
+                  disabled={clearDisabled}
+                  aria-label="Clear search"
                 >
                   Clear
                 </button>
-              ) : (
-                <button
-                  className="btn secondary"
-                  onClick={clearSearch}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    background: "white",
-                    border: "1px solid rgba(2,6,23,0.06)",
-                    boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
-                    cursor: "pointer",
-                    opacity: 0.0,
-                    pointerEvents: "none",
-                  }}
-                >
-                  Clear
-                </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
 
         <main>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 18,
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18 }}>
             <div style={{ color: "#475569", fontSize: 14 }}>
               {query && query.trim().length >= 3 ? (
                 <>
-                  <strong>{results.length}</strong>{" "}
-                  {results.length === 1 ? " record found" : " records found"}
+                  <strong>{results.length}</strong> {results.length === 1 ? " record found" : " records found"}
                 </>
               ) : (
-                <span style={{ color: "var(--muted)" }}>
-                  Type at least 3 characters to search
-                </span>
+                <span style={{ color: "var(--muted)" }}>Type at least 3 characters to search</span>
               )}
             </div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}></div>
@@ -571,17 +503,13 @@ export default function App() {
 
           <div className="results" aria-live="polite">
             {query && query.trim().length > 0 && query.trim().length < 3 && (
-              <div
-                style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}
-              >
+              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
                 Please type at least 3 characters to start searching.
               </div>
             )}
 
             {query && query.trim().length >= 3 && results.length === 0 && (
-              <div
-                style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}
-              >
+              <div style={{ gridColumn: "1/-1", padding: 12, color: "#64748b" }}>
                 No records matched your search.
               </div>
             )}
@@ -590,19 +518,11 @@ export default function App() {
               const nameEn = voter.name_english || "—";
               const nameMr = voter.name_marathi || "—";
               const photo = voter.photo || resultPhoto;
-              const ward =
-                voter.ward ||
-                voter.ward_no ||
-                voter.wardNumber ||
-                voter.part_no ||
-                7;
+              const ward = voter.ward || voter.ward_no || voter.wardNumber || voter.part_no || 7;
 
-              const cardBanner =
-                voter.card_banner || voter.header_image || bannerUrl2;
+              const cardBanner = voter.card_banner || voter.header_image || bannerUrl2;
 
-              const cardId = `card-${
-                voter.voter_id || `${voter.box_number}-${voter.part_no}`
-              }`;
+              const cardId = `card-${voter.voter_id || `${voter.box_number}-${voter.part_no}`}`;
 
               return (
                 <article
@@ -617,8 +537,7 @@ export default function App() {
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                     padding: 0,
                     background: "#fff",
-                    backgroundImage:
-                      "linear-gradient(180deg, rgba(11,87,208,0.02), rgba(255,255,255,0))",
+                    backgroundImage: "linear-gradient(180deg, rgba(11,87,208,0.02), rgba(255,255,255,0))",
                     position: "relative",
                   }}
                 >
@@ -644,44 +563,18 @@ export default function App() {
                   </div>
 
                   <div className="card-body">
-                    <div
-                      style={{
-                        marginBottom: 6,
-                        textAlign: "center",
-                        position: "relative",
-                      }}
-                    >
+                    <div style={{ marginBottom: 6, textAlign: "center", position: "relative" }}>
                       <div className="header-text" style={{ color: "#0f172a" }}>
-                        <span style={{ fontSize: 15, color: "#334155" }}>
-                          Ward 7 ( {ward} )
-                        </span>
-                        <div
-                          className="name-en"
-                          title={nameEn}
-                          style={{ fontSize: 16, fontWeight: 700 }}
-                        >
+                        <span style={{ fontSize: 15, color: "#334155" }}>Ward 7 ( {ward} )</span>
+                        <div className="name-en" title={nameEn} style={{ fontSize: 16, fontWeight: 700 }}>
                           {nameEn}
                         </div>
-                        <div
-                          className="name-mr"
-                          title={nameMr}
-                          style={{ fontSize: 15, color: "#334155" }}
-                        >
+                        <div className="name-mr" title={nameMr} style={{ fontSize: 15, color: "#334155" }}>
                           {nameMr}
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          position: "absolute",
-                          right: 8,
-                          top: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        {/* SINGLE BUTTON: prepares & shares image only for now */}
+                      <div style={{ position: "absolute", right: 8, top: 0, display: "flex", alignItems: "center", gap: 6 }}>
                         <button
                           onClick={() => shareCardWithInfo(voter)}
                           title="Share full card (image only)"
@@ -700,42 +593,20 @@ export default function App() {
                           }}
                           aria-label="Share full card (image only)"
                         >
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            aria-hidden
-                          >
-                            <path
-                              d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
-                              fill="#25D366"
-                            />
-                            <path
-                              d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z"
-                              fill="#fff"
-                            />
+                          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.94.56 3.74 1.53 5.25L2 22l4.9-1.49A9.9 9.9 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" fill="#25D366" />
+                            <path d="M17.6 14.2c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.36.22-.66.08-.3-.15-1.27-.47-2.42-1.48-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.68-1.64-.93-2.25-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.52.07-.8.3-.28.23-1.08 1.05-1.08 2.56 0 1.5 1.1 2.95 1.25 3.16.15.2 2.16 3.3 5.23 4.63 3.07 1.33 3.07.89 3.62.83.55-.06 1.78-.72 2.03-1.41.25-.69.25-1.27.18-1.4-.07-.13-.25-.2-.55-.35z" fill="#fff" />
                           </svg>
                           Share
                         </button>
                       </div>
                     </div>
 
-                    <div
-                      className="details"
-                      style={{ fontSize: 13, color: "#334155" }}
-                    >
-                      <div
-                        className="meta"
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}
-                      >
+                    <div className="details" style={{ fontSize: 13, color: "#334155" }}>
+                      <div className="meta" style={{ display: "flex", justifyContent: "space-between" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13 }}>
-                            <strong>Relative:</strong>{" "}
-                            {voter.relative_name_english || "—"} /{" "}
-                            {voter.relative_name_marathi || "—"}
+                            <strong>Relative:</strong> {voter.relative_name_english || "—"} / {voter.relative_name_marathi || "—"}
                           </div>
                           <div style={{ marginTop: 6, fontSize: 13 }}>
                             <strong>Voter ID:</strong> {voter.voter_id || "—"}
@@ -746,26 +617,10 @@ export default function App() {
                         </div>
 
                         <div style={{ textAlign: "right", minWidth: 86 }}>
-                          <div
-                            style={{
-                              background: "var(--soft)",
-                              color: "#1e3a8a",
-                              padding: "6px 10px",
-                              borderRadius: 10,
-                              fontSize: 13,
-                              fontWeight: 700,
-                            }}
-                            className="pill"
-                          >
+                          <div style={{ background: "var(--soft)", color: "#1e3a8a", padding: "6px 10px", borderRadius: 10, fontSize: 13, fontWeight: 700 }} className="pill">
                             अनु क्र.{voter.box_number ?? "—"}
                           </div>
-                          <div
-                            style={{
-                              marginTop: 8,
-                              color: "#64748b",
-                              fontSize: 13,
-                            }}
-                          >
+                          <div style={{ marginTop: 8, color: "#64748b", fontSize: 13 }}>
                             {voter.age ?? "—"} yrs • {voter.gender || "—"}
                           </div>
                         </div>
@@ -804,122 +659,38 @@ export default function App() {
           50% { transform: translateY(-6px); }
           100% { transform: translateY(0); }
         }
-
-        /* Optional little shimmer on hover for the marquee */
         .marqueeHover:hover { box-shadow: 0 10px 30px rgba(2,6,23,0.08); transform: translateY(-3px); transition: transform 300ms ease, box-shadow 300ms ease; }
-
-        /* Make marquee pause on hover (nice for long screens) */
         .marqueeText:hover { animationPlayState: paused; cursor: default; }
       `}</style>
 
-          <div style={topRight}>
-            Total Records: <strong>{votersData.length}</strong>
-          </div>
+          <div style={topRight}>Total Records: <strong>{votersData.length}</strong></div>
 
-          <div
-            style={marqueeContainer}
-            className="marqueeHover"
-            aria-hidden={false}
-            aria-live="polite"
-          >
-            {/* Marathi phrase - change this text if you want different spelling */}
+          <div style={marqueeContainer} className="marqueeHover" aria-hidden={false} aria-live="polite">
             <div style={marqueeText} className="marqueeText">
               एकच वादा करण दादा
-              <span style={heart} aria-hidden="true">
-                ❤️
-              </span>
+              <span style={heart} aria-hidden="true">❤️</span>
               <br />
-              <span
-                style={{
-                  display: "inline-block",
-                  marginLeft: 6,
-                  fontWeight: 600,
-                }}
-              >
-                राजा वही बनेगा जो हकदार होगा
-              </span>
+              <span style={{ display: "inline-block", marginLeft: 6, fontWeight: 600 }}>राजा वही बनेगा जो हकदार होगा</span>
             </div>
           </div>
-          <div
-            id="post-footer-banner"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginTop: 12,
-              padding: "0 20px",
-            }}
-          >
-            <img
-              src={bannerUrl23}
-              alt="Footer banner"
-              loading="lazy"
-              crossOrigin="anonymous"
-              onError={(e) => {
-                e.currentTarget.src = bannerUrl;
-              }}
-              style={{
-                width: "100%",
-                maxWidth: 1100,
-                height: "auto",
-                borderRadius: 12,
-                boxShadow: "0 12px 36px rgba(2,6,23,0.06)",
-                display: "block",
-              }}
-            />
+
+          <div id="post-footer-banner" style={{ display: "flex", justifyContent: "center", marginTop: 12, padding: "0 20px" }}>
+            <img src={bannerUrl23} alt="Footer banner" loading="lazy" crossOrigin="anonymous" onError={(e) => { e.currentTarget.src = bannerUrl; }} style={{ width: "100%", maxWidth: 1100, height: "auto", borderRadius: 12, boxShadow: "0 12px 36px rgba(2,6,23,0.06)", display: "block" }} />
           </div>
+
           <div style={copyright}>
             <span style={{ fontSize: 13, color: "#475569" }}>
-              © {new Date().getFullYear()} Voter Search — built with{" "}
-              <strong style={{ color: "#e11d48", fontWeight: 600 }}>
-                Lalit Mali
-              </strong>{" "}
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 300,
-                  color: "#16a34a",
-                  marginLeft: 6,
-                  letterSpacing: "0.5px",
-                }}
-              >
-                7775025688
-              </span>
+              © {new Date().getFullYear()} Voter Search — built with <strong style={{ color: "#e11d48", fontWeight: 600 }}>Lalit Mali</strong>
+              <span style={{ fontSize: 10, fontWeight: 300, color: "#16a34a", marginLeft: 6, letterSpacing: "0.5px" }}>7775025688</span>
             </span>
 
-            <span style={tinyHeart} aria-hidden="true">
-              ❤️
-            </span>
+            <span style={tinyHeart} aria-hidden="true">❤️</span>
           </div>
-          <div
-            id="post-footer-banner"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginTop: 12,
-              padding: "0 20px",
-            }}
-          >
-            <img
-              src={bannerUrl1}
-              alt="Footer banner"
-              loading="lazy"
-              crossOrigin="anonymous"
-              onError={(e) => {
-                e.currentTarget.src = bannerUrl;
-              }}
-              style={{
-                width: "100%",
-                maxWidth: 1100,
-                height: "auto",
-                borderRadius: 12,
-                boxShadow: "0 12px 36px rgba(2,6,23,0.06)",
-                display: "block",
-              }}
-            />
+
+          <div id="post-footer-banner" style={{ display: "flex", justifyContent: "center", marginTop: 12, padding: "0 20px" }}>
+            <img src={bannerUrl1} alt="Footer banner" loading="lazy" crossOrigin="anonymous" onError={(e) => { e.currentTarget.src = bannerUrl; }} style={{ width: "100%", maxWidth: 1100, height: "auto", borderRadius: 12, boxShadow: "0 12px 36px rgba(2,6,23,0.06)", display: "block" }} />
           </div>
         </footer>
-
-        {/* POST-FOOTER BANNER (visible after the footer) */}
       </div>
     </div>
   );
